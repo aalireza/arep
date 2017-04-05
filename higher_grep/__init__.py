@@ -148,6 +148,7 @@ _Constraints_template = {
     }
 }
 
+
 def _establish_parent_link(tree):
     to_be_processed = [tree]
     while to_be_processed:
@@ -169,13 +170,13 @@ def _establish_parent_link(tree):
 
 def _constraint_template_modifier_func_maker(
         main, job, should_consider=None, args=None):
-    def f(template):
+    def constraint_template_modifier(template):
         if should_consider is not None:
             template[main][job]['should_consider'] = should_consider
         if args is not None:
             for key, value in args:
                 template[main][job][key] = value
-    return f
+    return constraint_template_modifier
 
 
 class Action(object):
@@ -190,7 +191,7 @@ class Action(object):
         return Action._constraint_modifier_localized(
             job='Initialization', should_consider=should_consider)
 
-    def Import(_id=None, _from=None, _from_id= None, _as=None,
+    def Import(_id=None, _from=None, _from_id=None, _as=None,
                should_consider=True):
         return Action._constraint_modifier_localized(
             job='Import', should_consider=should_consider, args=[
@@ -237,7 +238,9 @@ class Action(object):
         return Action._constraint_modifier_localized(
             job='Indexing', should_consider=should_consider)
 
-    def Trying(should_consider=True):
+    def Trying(_with_except_types=None, _without_except_types=None,
+               _with_except_ases=None, _with_finally=None,
+               should_consider=True):
         return Action._constraint_modifier_localized(
             job='Trying', should_consider=should_consider, args=[
                 ('with_except_types', _with_except_types),
@@ -245,7 +248,7 @@ class Action(object):
                 ('with_except_ases', _with_except_ases),
                 ('with_finally', _with_finally)])
 
-    def Raising(should_consider=True):
+    def Raising(_error_type=None, _error_message=None, should_consider=True):
         return Action._constraint_modifier_localized(
             job='Raising', should_consider=should_consider, args=[
                 ('error_type', _error_type),
@@ -260,12 +263,12 @@ class Action(object):
     def Making_Global(_id=None, should_consider=True):
         return Action._constraint_modifier_localized(
             job='Making_Global', should_consider=should_consider, args=[
-                ('id',_id)])
+                ('id', _id)])
 
     def Making_Nonlocal(_id=None, should_consider=True):
         return Action._constraint_modifier_localized(
             job='Making_Nonlocal', should_consider=should_consider, args=[
-                ('id',_id)])
+                ('id', _id)])
 
 
 class Kind(object):
@@ -285,8 +288,8 @@ class Kind(object):
             job='STD_Types', should_consider=should_consider, args=[
                 ('type', _type)])
 
-    def Functions(_id=None, _in_global=None, _is_lambda=None, _is_decorator=None,
-                  should_consider=True):
+    def Functions(_id=None, _in_global=None, _is_lambda=None,
+                  _is_decorator=None, should_consider=True):
         return Kind._constraint_modifier_localized(
             job='Functions', should_consider=should_consider, args=[
                 ('id', _id),
@@ -313,7 +316,7 @@ class Kind(object):
                 ('id', _id),
                 ('class_id', _class_id)])
 
-    def Methods(_id=None, should_consider=True):
+    def Methods(_id=None, _class_id=None, should_consider=True):
         return Kind._constraint_modifier_localized(
             job='Methods', should_consider=should_consider, args=[
                 ('id', _id),
@@ -340,6 +343,7 @@ class Kind(object):
                 ('is_unary', _is_unary),
                 ('is_binary', _is_binary)])
 
+
 class Location_Limit(object):
     _constraint_modifier_localized = partial(
         _constraint_template_modifier_func_maker, main='Location_Limit')
@@ -358,12 +362,15 @@ class Location_Limit(object):
 
 
 class _Validators(object):
+
     def Action_Call(node, should_consider):
-        if not should_consider:
-            return False
+
+        def basic_validation(node):
+            return bool(type(node) is ast.Call)
+
         try:
-            partial_validators = set()
-            partial_validators.add(bool(type(node) == ast.Call))
+            partial_validators = set([should_consider])
+            partial_validators.add(basic_validation(node))
             return all(partial_validators)
         except AttributeError:
             return False
@@ -845,9 +852,9 @@ class Grepper(object):
                 job: {
                     arg: self.__constraints_template[
                             constraint_type][job][arg]
-                        for arg in self.__constraints_template[
+                    for arg in self.__constraints_template[
                                 constraint_type][job]
-                        if (self.__constraints_template[
+                    if (self.__constraints_template[
                                 constraint_type][job][arg]is not None)
                 } for job in self.__constraints_template[constraint_type]
             } for constraint_type in self.__constraints_template
@@ -875,7 +882,7 @@ class Grepper(object):
                     **{
                         (lambda key: (key if key == 'should_consider'
                                       else "_{}".format(key))
-                        )(key): value
+                         )(key): value
                         for key, value in (
                                 self.__constraints_template[
                                     constraint_type][job].items())
@@ -885,14 +892,11 @@ class Grepper(object):
         }
         return validator_partial_predicates
 
-    def add_constraints(self, action=None, kind=None, limit=None):
-        for local_variable in {'action', 'kind', 'limit'}:
-            current_variable = locals()[local_variable]
-            if (current_variable is not None):
-                if type(current_variable) is not list:
-                    current_variable = [current_variable]
-                for template_modifier in current_variable:
-                    template_modifier(self.__constraints_template)
+    def add_constraint(self, constraint):
+        assert bool(
+            constraint.__name__ == "constraint_template_modifier"
+        ), "Invalid constraint"
+        constraint(self.__constraints_template)
 
     def run(self):
         validator_predicates = self._validator_predicate_extracter()
@@ -908,10 +912,10 @@ class Grepper(object):
 
 
 if __name__ == '__main__':
-    a = Grepper('/home/raf/Projects/Workspace/higher_grep/data.py')
+    a = Grepper('/home/raf/Projects/Workspace/higher-grepy/data.py')
     # a.add_constraints(Kind.Functions())
     # a.add_constraints(Kind.Functions(_is_lambda=True))
-    a.add_constraints(Action.Call(should_consider=True))
+    a.add_constraint(Action.Call(should_consider=True))
     # a.add_constraints(Action.Import())
     # a.add_constraints(Action.Import(_id = 'deque'))
     # a.add_constraints(Action.Import(_from=False))
@@ -921,5 +925,5 @@ if __name__ == '__main__':
     # a.add_constraints(Action.Conditional())
     # a.add_constraints(Action.Making_Global())
     # a.add_constraints(Action.Deletion())
-    
+
     print(a.get_all_results())

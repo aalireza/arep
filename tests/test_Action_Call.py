@@ -17,5 +17,5 @@ def engine():
 
 
 def test_call(engine):
-    engine.add_constraints(hg.Action.Call())
+    engine.add_constraint(hg.Action.Call())
     assert results == set(engine.get_all_results())
