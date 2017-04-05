@@ -30,9 +30,12 @@ def _Constraints_template():
             },
             'Assignment': {
                 'should_consider': None,
+                'with_op': None,
             },
             'Assertion': {
                 'should_consider': None,
+                'with_error_msg': None,
+                'error_msg_content': None,
             },
             'Looping': {
                 'should_consider': None,
@@ -210,13 +213,17 @@ class Action(object):
         return Action._constraint_modifier_localized(
             job='Definition', should_consider=should_consider)
 
-    def Assignment(should_consider=True):
+    def Assignment(_with_op=None, should_consider=True):
         return Action._constraint_modifier_localized(
-            job='Assignment', should_consider=should_consider)
+            job='Assignment', should_consider=should_consider, args=[
+                ('with_op', _with_op)])
 
-    def Assertion(should_consider=True):
+    def Assertion(_with_error_msg=None, _error_msg_content=None,
+                  should_consider=True):
         return Action._constraint_modifier_localized(
-            job='Assertion', should_consider=should_consider)
+            job='Assertion', should_consider=should_consider, args=[
+                ('with_error_msg', _with_error_msg),
+                ('error_msg_content', _error_msg_content)])
 
     def Looping(_for=None, _while=None, _for_else=None, should_consider=True):
         return Action._constraint_modifier_localized(
@@ -385,13 +392,11 @@ class Location_Limit(object):
 
 class _Validators(object):
     def Action_Call(node, should_consider):
-        def basic_validation(node):
+        def basic_validation():
             return bool(type(node) is ast.Call)
-
         try:
-            partial_validators = set([should_consider, basic_validation(node)])
+            partial_validators = set([should_consider, basic_validation()])
             return all(partial_validators)
-
         except AttributeError:
             return False
 
@@ -399,67 +404,90 @@ class _Validators(object):
         raise NotImplementedError
 
     def Action_Import(node, _id, _from, _from_id, _as, should_consider):
-        def basic_validation(node):
+        def basic_validation():
             return bool(type(node) in {ast.Import, ast.ImportFrom})
 
-        def from_validation(node, is_sought):
+        def from_validation(is_sought):
             if is_sought:
                 return bool(type(node) != ast.Import)
             else:
                 return bool(type(node) != ast.ImportFrom)
 
-        def id_validation(node, _id):
+        def id_validation(_id):
             return bool(_id in {sub.name for sub in node.names})
 
-        def from_id_validation(node, _from_id):
+        def from_id_validation(_from_id):
             return bool(_from_id == node.module)
 
-        def as_validation(node, _as):
+        def as_validation(_as):
             return bool(_as in [sub.asname for sub in node.names])
 
         try:
-            partial_validators = set([should_consider, basic_validation(node)])
+            partial_validators = set([should_consider, basic_validation()])
             if _from is not None:
-                partial_validators.add(from_validation(node, bool(_from)))
+                partial_validators.add(from_validation(bool(_from)))
             if _id is not None:
-                partial_validators.add(id_validation(node, _id))
+                partial_validators.add(id_validation(_id))
             if _from_id is not None:
-                partial_validators.add(from_id_validation(node, _from_id))
+                partial_validators.add(from_id_validation(_from_id))
             if _as is not None:
-                partial_validators.add(as_validation(node, _as))
+                partial_validators.add(as_validation(_as))
             return all(partial_validators)
 
         except AttributeError:
             return False
 
     def Action_Definition(node, should_consider):
-        if not should_consider:
-            return False
+        def basic_validation():
+            return bool(type(node) in {ast.FunctionDef, ast.ClassDef})
         try:
-            partial_validators = set()
-            partial_validators.add(
-                bool(type(node) in {ast.FunctionDef, ast.ClassDef}))
+            partial_validators = set([should_consider, basic_validation()])
             return all(partial_validators)
         except AttributeError:
             return False
 
-    def Action_Assignment(node, should_consider):
-        if not should_consider:
-            return False
+    def Action_Assignment(node, _with_op, should_consider):
+        def basic_validation():
+            return bool(type(node) in {ast.Assign, ast.AugAssign})
+
+        def with_op_validation(is_sought):
+            if is_sought:
+                return bool(type(node) != ast.Assign)
+            else:
+                return bool(type(node) != ast.AugAssign)
         try:
-            partial_validators = set()
-            partial_validators.add(bool(type(node) == ast.Assign))
+            partial_validators = set([should_consider, basic_validation()])
+            if _with_op is not None:
+                partial_validators.add(with_op_validation(bool(_with_op)))
             return all(partial_validators)
+
         except AttributeError:
             return False
 
-    def Action_Assertion(node, should_consider):
-        if not should_consider:
-            return False
+    def Action_Assertion(node, _with_error_msg, _error_msg_content,
+                         should_consider):
+
+        def basic_validation():
+            return bool(type(node) is ast.Assert)
+
+        def with_error_msg_validation(is_sought):
+            if is_sought:
+                return bool(node.msg is not None)
+            else:
+                return bool(node.msg is None)
+
+        def error_msg_content_validation():
+            return bool(_error_msg_content == node.msg)
+
         try:
-            partial_validators = set()
-            partial_validators.add(bool(type(node) == ast.Assert))
+            partial_validators = set([should_consider, basic_validation()])
+            if _with_error_msg is not None:
+                partial_validators.add(with_error_msg_validation(bool(
+                    _with_error_msg)))
+            if _error_msg_content is not None:
+                partial_validators.add(error_msg_content_validation())
             return all(partial_validators)
+
         except AttributeError:
             return False
 
@@ -963,14 +991,16 @@ class Grepper(object):
 
 
 if __name__ == '__main__':
-    a = Grepper('/home/raf/Projects/Workspace/higher-grepy/data.py')
+    # a = Grepper('/home/raf/Projects/Workspace/higher-grepy/data.py')
+    a = Grepper('/home/raf/Projects/Workspace/higher-grepy/tests/data/Action/Assignment.py')
     # a.add_constraint(Kind.Functions())
     # a.add_constraint(Kind.Functions(_is_lambda=True))
     # a.add_constraint(Action.Call(should_consider=True))
-    a.add_constraint(Action.Import(_from=True, _from_id='collections'))
+    # a.add_constraint(Action.Import(_from=True, _from_id='collections'))
     # a.add_constraint(Action.Import(_id = 'deque'))
     # a.add_constraint(Action.Import(_from=False))
     # a.add_constraint(Action.Definition())
+    a.add_constraint(Action.Assignment())
     # a.add_constraint(Action.Assertion())
     # a.add_constraint(Action.Looping())
     # a.add_constraint(Action.Conditional())
