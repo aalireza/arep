@@ -611,22 +611,22 @@ class _Validators(object):
         raise NotImplementedError
 
     def Action_Import(node, _id, _from, _from_id, _as, should_consider):
-        def basic_validation():
+        def basic_validation(node=node):
             return bool(type(node) in {ast.Import, ast.ImportFrom})
 
-        def from_validation(is_sought):
+        def from_validation(is_sought, node=node):
             if is_sought:
                 return bool(type(node) != ast.Import)
             else:
                 return bool(type(node) != ast.ImportFrom)
 
-        def id_validation(_id):
+        def id_validation(_id, node=node):
             return bool(_id in {sub.name for sub in node.names})
 
-        def from_id_validation(_from_id):
+        def from_id_validation(_from_id, node=node):
             return bool(_from_id == node.module)
 
-        def as_validation(_as):
+        def as_validation(_as, node=node):
             return bool(_as in [sub.asname for sub in node.names])
 
         try:
