@@ -654,10 +654,10 @@ class _Validators(object):
             return False
 
     def Action_Assignment(node, _with_op, should_consider):
-        def basic_validation():
+        def basic_validation(node=node):
             return bool(type(node) in {ast.Assign, ast.AugAssign})
 
-        def with_op_validation(is_sought):
+        def with_op_validation(is_sought, node=node):
             if is_sought:
                 return bool(type(node) is not ast.Assign)
             else:
