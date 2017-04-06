@@ -674,16 +674,16 @@ class _Validators(object):
     def Action_Assertion(node, _with_error_msg, _error_msg_content,
                          should_consider):
 
-        def basic_validation():
+        def basic_validation(node=node):
             return bool(type(node) is ast.Assert)
 
-        def with_error_msg_validation(is_sought):
+        def with_error_msg_validation(is_sought, node=node):
             if is_sought:
                 return bool(node.msg is not None)
             else:
                 return bool(node.msg is None)
 
-        def error_msg_content_validation():
+        def error_msg_content_validation(node=node):
             return bool(_error_msg_content == node.msg)
 
         try:
