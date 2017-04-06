@@ -645,7 +645,7 @@ class _Validators(object):
             return False
 
     def Action_Definition(node, should_consider):
-        def basic_validation():
+        def basic_validation(node=node):
             return bool(type(node) in {ast.FunctionDef, ast.ClassDef})
         try:
             partial_validators = set([should_consider, basic_validation()])
