@@ -599,7 +599,7 @@ class Location_Limit(object):
 
 class _Validators(object):
     def Action_Call(node, should_consider):
-        def basic_validation():
+        def basic_validation(node=node):
             return bool(type(node) is ast.Call)
         try:
             partial_validators = set([should_consider, basic_validation()])
