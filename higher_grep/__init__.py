@@ -9,6 +9,7 @@ import sys
 if sys.version_info > (3, 0):
     long = int
 
+
 def _Constraints_template():
     return {
         'Action': {
@@ -373,168 +374,6 @@ def _comparison_evaluator(node):
 
     return left
 
-def _Constraints_template():
-    return {
-        'Action': {
-            'Call': {
-                'should_consider': None,
-            },
-            'Initialization': {
-                'should_consider': None,
-            },
-            'Import': {
-                'should_consider': None,
-                'id': None,
-                'from': None,
-                'from_id': None,
-                'as': None,
-            },
-            'Definition': {
-                'should_consider': None,
-            },
-            'Assignment': {
-                'should_consider': None,
-                'with_op': None,
-            },
-            'Assertion': {
-                'should_consider': None,
-                'with_error_msg': None,
-                'error_msg_content': None,
-            },
-            'Looping': {
-                'should_consider': None,
-                'for': None,
-                'while': None,
-                'for_else': None,
-            },
-            'Conditional': {
-                'should_consider': None,
-                'with_elif': None,
-                'with_else': None,
-                'is_ifexp': None,
-            },
-            'With': {
-                'should_consider': None,
-                'as': None,
-            },
-            'Deletion': {
-                'should_consider': None,
-            },
-            'Indexing': {
-                'should_consider': None,
-            },
-            'Trying': {
-                'should_consider': None,
-                'with_all_except_types': None,
-                'without_any_except_types': None,
-                'with_except_ases': None,
-                'with_finally': None,
-            },
-            'Raising': {
-                'should_consider': None,
-                'error_type': None,
-                'error_message': None,
-            },
-            'Yielding': {
-                'should_consider': None,
-                'in_comprehension': None,
-                'yield_from': None,
-            },
-            'Making_Global': {
-                'should_consider': None,
-                'id': None,
-            },
-            'Making_Nonlocal': {
-                'should_consider': None,
-                'id': None,
-            }
-        },
-        'Kind': {
-            'Variables': {
-                'should_consider': None,
-                'id': None,
-                'is_attribute': None,
-                'in_global': None,
-            },
-            'STD_Types': {
-                'should_consider': None,
-                'type': None,
-            },
-            'Functions': {
-                'should_consider': None,
-                'id': None,
-                'in_global': None,
-                'is_lambda': None,
-                'is_decorator': None,
-            },
-            'Decorators': {
-                'should_consider': None,
-                'id': None,
-            },
-            'Classes': {
-                'should_consider': None,
-                'id': None,
-                'in_global': None,
-                'superclass_type': None,
-            },
-            'Attributes': {
-                'should_consider': None,
-                'id': None,
-                'class_id': None,
-            },
-            'Methods': {
-                'should_consider': None,
-                'id': None,
-                'class_id': None,
-            },
-            'Generators': {
-                'should_consider': None,
-                'id': None,
-            },
-            'Comprehensions': {
-                'should_consider': None,
-                'of_list': None,
-                'of_dict': None,
-                'of_gen': None,
-            },
-            'Operations': {
-                'should_consider': None,
-                'operation_str': None,
-                'is_unary': None,
-                'is_binary': None,
-            },
-        },
-        'Location_Limit': {
-            'Line_Numbers': {
-                'minimum': None,
-                'maximum': None,
-            },
-            'Column_Numbers': {
-                'minimum': None,
-                'maximum': None,
-            }
-        }
-    }
-
-
-def _establish_parent_link(tree):
-    to_be_processed = [tree]
-    while to_be_processed:
-        try:
-            current_parent = to_be_processed.pop(0)
-            children = current_parent.body
-            for child in children:
-                child._parent = current_parent
-            to_be_processed.extend(children)
-        except AttributeError:
-            if to_be_processed:
-                to_be_processed.pop(0)
-        except IndexError:
-            continue
-    if (not bool(to_be_processed)):
-        return tree
-    return False
-
 
 def _constraint_template_modifier_func_maker(main,
                                              job,
@@ -589,11 +428,15 @@ class Action(object):
                 ('with_error_msg', _with_error_msg),
                 ('error_msg_content', _error_msg_content)])
 
-    def Looping(_for=None, _while=None, _for_else=None, should_consider=True):
+    def Looping(_for=None, _while=None, _for_else=None,
+                _with_break=None, _with_non_terminating_test=None,
+                should_consider=True):
         return Action._constraint_modifier_localized(
             job='Looping',
             should_consider=should_consider,
-            args=[('for', _for), ('while', _while), ('for_else', _for_else)])
+            args=[('for', _for), ('while', _while), ('for_else', _for_else),
+                  ('with_break', _with_break),
+                  ('with_non_terminating_test', _with_non_terminating_test)])
 
     def Conditional(_with_elif=None, _with_else=None, should_consider=True):
         return Action._constraint_modifier_localized(
@@ -816,9 +659,9 @@ class _Validators(object):
 
         def with_op_validation(is_sought):
             if is_sought:
-                return bool(type(node) != ast.Assign)
+                return bool(type(node) is not ast.Assign)
             else:
-                return bool(type(node) != ast.AugAssign)
+                return bool(type(node) is not ast.AugAssign)
         try:
             partial_validators = set([should_consider, basic_validation()])
             if _with_op is not None:
@@ -855,33 +698,140 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Action_Looping(node, _for, _while, _for_else, should_consider):
-        if not should_consider:
-            return False
+    def Action_Looping(node, _for, _while, _for_else, _with_break,
+                       _with_non_terminating_test, should_consider):
+
+        def regular_looping_validation(node=node):
+            return bool(type(node) in {ast.For, ast.While})
+
+        def comprehension_looping_validation(node=node):
+            return bool(type(node) in {ast.SetComp, ast.ListComp, ast.DictComp,
+                                       ast.GeneratorExp})
+
+        def basic_validation(node=node):
+            return bool(regular_looping_validation() or
+                        comprehension_looping_validation())
+
+        def for_validation(is_sought, node=node):
+            if is_sought:
+                return bool(type(node) is not ast.While)
+            else:
+                return bool(type(node) is ast.While)
+
+        def while_validation(is_sought, node=node):
+            if is_sought:
+                return bool(type(node) is ast.While)
+            else:
+                return bool(type(node) is not ast.While)
+
+        def for_else_validation(is_sought, node=node):
+            if is_sought:
+                if (
+                        regular_looping_validation() and
+                        not comprehension_looping_validation()
+                ):
+                    return bool(len(node.orelse) != 0)
+            else:
+                try:
+                    return bool(len(node.orelse) == 0)
+                except AttributeError:
+                    return True
+
+        def with_break_validation(is_sought, node=node):
+            break_presence = False
+            if regular_looping_validation(node=node):
+                non_looping_body = filter(
+                    lambda body_element: not regular_looping_validation(
+                        node=body_element
+                    ), node.body
+                )
+                for node in non_looping_body:
+                    for sub_node in ast.walk(node):
+                        if type(sub_node) is ast.Break:
+                            break_presence = True
+                            break
+                    if break_presence:
+                        break
+            if is_sought:
+                return bool(break_presence)
+            else:
+                return bool(not break_presence)
+
+        def with_non_terminating_test_validation(is_sought, node=node):
+            def constant_test():
+                partial_testers = {
+                    'is_boolean': bool(type(node.test) is ast.NameConstant)
+                }
+                if bool(type(node.test) is ast.Num):
+                    partial_testers['is_non_zero'] = bool(node.test.n)
+                if bool(type(node.test) is ast.Str):
+                    partial_testers['is_string'] = bool(node.test.s)
+                return any(partial_testers.values())
+
+            def comparison_test():
+                is_comparison = bool(type(node.test) is ast.Compare)
+                try:
+                    result = _comparison_evaluator(node=node.test)
+                except NotImplementedError:
+                    result = False
+                except TypeError:
+                    return False
+                return bool(is_comparison and bool(result))
+
+            # Only comparators have a `test` method. By attempting to run the
+            # test for a non-comparator node, we'd be raising an
+            # AttributeError.
+            if "test" in node.__dict__:
+                constant_infinite = constant_test()
+                comparison_infinite = comparison_test()
+                if is_sought:
+                    return bool(constant_infinite or comparison_infinite)
+                else:
+                    print(node.lineno, constant_infinite, comparison_infinite)
+                    return (not bool(constant_infinite or comparison_infinite))
+            return not is_sought
+
         try:
-            partial_validators = set()
-            partial_validators.add(bool(type(node) in {ast.For, ast.While}))
+            partial_validators = set([should_consider, basic_validation()])
             if _for is not None:
-                partial_validators.add(
-                    bool(_for) and bool(type(node) == ast.For))
+                partial_validators.add(for_validation(bool(_for)))
             if _while is not None:
-                partial_validators.add(
-                    bool(_while) and bool(type(node) == ast.While))
+                partial_validators.add(while_validation(bool(_while)))
             if _for_else is not None:
-                partial_validators.add(
-                    bool(_for_else) and bool(type(node) == ast.For) and
-                    bool(len(node.orelse) != 0))
+                partial_validators.add(for_else_validation(bool(_for_else)))
+            if _with_break is not None:
+                partial_validators.add(with_break_validation(bool(
+                    _with_break)))
+            if _with_non_terminating_test is not None:
+                partial_validators.add(with_non_terminating_test_validation(
+                    bool(_with_non_terminating_test)))
             return all(partial_validators)
+
         except AttributeError:
             return False
 
     def Action_Conditional(node, _with_elif, _with_else, _is_ifexp,
                            should_consider):
-        if not should_consider:
-            return False
+        def regular_conditional_validation():
+            return bool(type(node) in {ast.If, ast.IfExp})
+
+        def comprehension_conditional_validation():
+            pass
+
+        def basic_validation():
+            return bool(regular_conditional_validation() or
+                        comprehension_conditional_validation())
+
+        def with_elif_validation(is_sought):
+            pass
+
+        def ifexp_validation(is_sought):
+            if is_sought:
+                return bool(type(node) is ast.IfExp)
+            else:
+                return bool(type(node) is not ast.IfExp)
         try:
-            partial_validators = set()
-            partial_validators.add(bool(type(node) in {ast.If, ast.IfExp}))
+            partial_validators = set([should_consider, basic_validation()])
             if _with_elif is not None:
                 partial_validators.add(
                     bool(_with_elif) and
@@ -915,21 +865,19 @@ class _Validators(object):
             return False
 
     def Action_Deletion(node, should_consider):
-        if not should_consider:
-            return False
+        def basic_validation():
+            return bool(type(node) is ast.Delete)
         try:
-            partial_validators = set()
-            partial_validators.add(bool(type(node) is ast.Delete))
+            partial_validators = set(should_consider, basic_validation())
             return all(partial_validators)
         except AttributeError:
             return False
 
     def Action_Indexing(node, should_consider):
-        if not should_consider:
-            return False
+        def basic_validation():
+            return bool(type(node) is ast.Subscript)
         try:
-            partial_validators = set()
-            partial_validators.add(bool(type(node) is ast.Subscript))
+            partial_validators = set(should_consider, basic_validation())
             return all(partial_validators)
         except AttributeError:
             return False
