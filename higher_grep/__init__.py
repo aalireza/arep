@@ -912,18 +912,16 @@ class _Validators(object):
             return False
 
     def Action_With(node, _as, should_consider):
-        if not should_consider:
-            return False
+        def basic_validation(node=node):
+            return bool(type(node) is ast.With)
+
+        def as_validation(_as):
+            return any([bool(_as == with_item.optional_vars.id)
+                        for with_item in node.items])
         try:
-            partial_validators = set()
-            partial_validators.add(bool(type(node) == ast.With))
+            partial_validators = set([should_consider, basic_validation()])
             if _as is not None:
-                partial_validators.add(
-                    bool(_as) and bool(
-                        any([
-                            _as == with_item.optional_vars.id
-                            for with_item in node.items
-                        ])))
+                partial_validators.add(as_validation(_as))
             return all(partial_validators)
         except AttributeError:
             return False
