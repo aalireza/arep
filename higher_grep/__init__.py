@@ -64,9 +64,8 @@ def _Constraints_template():
             },
             'Trying': {
                 'should_consider': None,
-                'with_all_except_types': None,
-                'without_any_except_types': None,
-                'with_except_ases': None,
+                'with_except_list': None,
+                'with_except_as_list': None,
                 'with_finally': None,
             },
             'Raising': {
@@ -465,18 +464,16 @@ class Action(object):
         return Action._constraint_modifier_localized(
             job='Indexing', should_consider=should_consider)
 
-    def Trying(_with_except_types=None,
-               _without_except_types=None,
-               _with_except_ases=None,
+    def Trying(_with_except_list=None,
+               _with_except_as_list=None,
                _with_finally=None,
                should_consider=True):
         return Action._constraint_modifier_localized(
             job='Trying',
             should_consider=should_consider,
-            args=[('with_except_types', _with_except_types),
-                  ('without_except_types', _without_except_types), (
-                      'with_except_ases', _with_except_ases), ('with_finally',
-                                                               _with_finally)])
+            args=[('with_except_list', _with_except_list),
+                  ('with_except_as_list', _with_except_as_list),
+                  ('with_finally', _with_finally)])
 
     def Raising(_error_type=None, _error_message=None, should_consider=True):
         return Action._constraint_modifier_localized(
@@ -795,7 +792,6 @@ class _Validators(object):
                 if is_sought:
                     return bool(constant_infinite or comparison_infinite)
                 else:
-                    print(node.lineno, constant_infinite, comparison_infinite)
                     return (not bool(constant_infinite or comparison_infinite))
             return not is_sought
 
@@ -944,42 +940,66 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Action_Trying(node, _with_all_except_types, _without_any_except_types,
-                      _with_except_ases, _with_finally, should_consider):
-        if not should_consider:
-            return False
+    def Action_Trying(node, _with_except_list, _with_except_as_list,
+                      _with_finally, should_consider):
+        def basic_validation(node=node):
+            return bool(type(node) is ast.Try)
+
+        def except_list_validation(
+                is_sought, except_list=_with_except_list, node=node):
+            if type(except_list) in {set, list}:
+                except_names = set(except_name.__name__
+                                   for except_name in except_list)
+            else:
+                except_names = {except_list.__name__}
+
+            present_excepts = set([])
+            for handler in node.handlers:
+                if type(handler.type) is ast.Call:
+                    present_excepts.add(handler.type.func.id)
+                elif type(handler.type) in {ast.Name, ast.NameConstant}:
+                    present_excepts.add(handler.type.id)
+
+            absent_excepts = (except_names - present_excepts)
+            if is_sought:
+                return bool(absent_excepts == set())
+            else:
+                return bool(absent_excepts != set())
+            return (not is_sought)
+
+        def except_as_list_validation(
+                is_sought, as_list=_with_except_as_list, node=node):
+            if type(as_list) in {set, list}:
+                as_names = set(as_name.__name__ for as_name in as_list)
+            else:
+                as_names = {str(as_list)}
+
+            present_as_names = set([handler.name for handler in node.handlers])
+            absent_as_names = (as_names - present_as_names)
+            if is_sought:
+                return bool(absent_as_names == set())
+            else:
+                return bool(absent_as_names != set())
+            return (not is_sought)
+
+        def with_finally_validation(is_sought, node=node):
+            if is_sought:
+                return bool(len(node.finalbody) != 0)
+            else:
+                return bool(len(node.finalbody) == 0)
+
         try:
-            partial_validators = set()
-            partial_validators.add(bool(type(node) == ast.Try))
-            if _with_all_except_types is not None:
-                partial_validator.add(
-                    bool(_with_all_except_types) and bool(
-                        all([(except_type.__name__ in {
-                            handler.type.id
-                            for handler in node.handlers
-                            if type(handler) is ast.ExceptHandler
-                        }) for except_type in _with_all_except_types])))
-            if _without_any_except_types is not None:
-                partial_validator.add(
-                    bool(_without_any_except_types) and
-                    bool(not any([(except_type.__name__ in {
-                        handler.type.id
-                        for handler in node.handlers
-                        if type(handler) is ast.ExceptHandler
-                    }) for except_type in _with_all_except_types])))
-            if _with_except_ases is not None:
+            partial_validators = set([should_consider, basic_validation()])
+            if _with_except_list is not None:
                 partial_validators.add(
-                    bool(_with_except_ases) and bool(
-                        all([
-                            except_as in {
-                                handler.name
-                                for handler in node.handlers
-                                if type(handler) is ast.ExceptHandler
-                            } for except_as in _with_except_ases
-                        ])))
+                    except_list_validation(is_sought=bool(_with_except_list)))
+            if _with_except_as_list is not None:
+                partial_validators.add(
+                    except_as_list_validation(
+                        is_sought=bool(_with_except_as_list)))
             if _with_finally is not None:
                 partial_validators.add(
-                    bool(_with_finally) and bool(len(node.finalbody) != 0))
+                    with_finally_validation(is_sought=bool(_with_finally)))
             return all(partial_validators)
         except AttributeError:
             return False
