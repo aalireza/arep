@@ -350,6 +350,13 @@ def _ast_mapped_operators():
     return ast_mappings
 
 
+knowledge = {
+    'comprehension_forms': {
+        ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp
+    },
+}
+
+
 def _comparison_evaluator(node):
 
     def type_seive(comparator):
@@ -438,11 +445,13 @@ class Action(object):
                   ('with_break', _with_break),
                   ('with_non_terminating_test', _with_non_terminating_test)])
 
-    def Conditional(_with_elif=None, _with_else=None, should_consider=True):
+    def Conditional(_with_elif=None, _with_else=None, _is_ifexp=None,
+                    should_consider=True):
         return Action._constraint_modifier_localized(
             job='Conditional',
             should_consider=should_consider,
-            args=[('with_elif', _with_elif), ('with_else', _with_else)])
+            args=[('with_elif', _with_elif), ('with_else', _with_else),
+                  ('is_ifexp', _is_ifexp)])
 
     def With(_as=None, should_consider=True):
         return Action._constraint_modifier_localized(
@@ -705,12 +714,11 @@ class _Validators(object):
             return bool(type(node) in {ast.For, ast.While})
 
         def comprehension_looping_validation(node=node):
-            return bool(type(node) in {ast.SetComp, ast.ListComp, ast.DictComp,
-                                       ast.GeneratorExp})
+            return bool(type(node) in knowledge['comprehension_forms'])
 
         def basic_validation(node=node):
-            return bool(regular_looping_validation() or
-                        comprehension_looping_validation())
+            return bool(regular_looping_validation(node=node) or
+                        comprehension_looping_validation(node=node))
 
         def for_validation(is_sought, node=node):
             if is_sought:
@@ -727,8 +735,8 @@ class _Validators(object):
         def for_else_validation(is_sought, node=node):
             if is_sought:
                 if (
-                        regular_looping_validation() and
-                        not comprehension_looping_validation()
+                        regular_looping_validation(node=node) and
+                        not comprehension_looping_validation(node=node)
                 ):
                     return bool(len(node.orelse) != 0)
             else:
@@ -812,37 +820,93 @@ class _Validators(object):
 
     def Action_Conditional(node, _with_elif, _with_else, _is_ifexp,
                            should_consider):
-        def regular_conditional_validation():
-            return bool(type(node) in {ast.If, ast.IfExp})
+        def regular_conditional_validation(node=node):
+            return bool(type(node) is ast.If)
 
-        def comprehension_conditional_validation():
-            pass
+        def expressional_conditional_validation(node=node):
+            return bool(type(node) is ast.IfExp)
 
-        def basic_validation():
-            return bool(regular_conditional_validation() or
-                        comprehension_conditional_validation())
+        def comprehension_conditional_validation(node=node):
+            is_in_comprehension_form = bool(
+                type(node) in knowledge['comprehension_forms'])
+            if is_in_comprehension_form:
+                for generator in node.generators:
+                    if len(generator.ifs) != 0:
+                        return True
+            return False
 
-        def with_elif_validation(is_sought):
-            pass
+        def parent_child_both_ifs_validation(node=node):
+            is_if_itself = regular_conditional_validation(node=node)
+            parent_is_if = regular_conditional_validation(node=node._parent)
+            return (is_if_itself and parent_is_if)
 
-        def ifexp_validation(is_sought):
+        def basic_validation(node=node):
+            return (
+                (regular_conditional_validation(node=node) and
+                 not(parent_child_both_ifs_validation(
+                     node=node))
+                 ) or expressional_conditional_validation(node=node) or
+                comprehension_conditional_validation(node=node)
+            )
+
+        def with_elif_validation(is_sought, node=node):
+            if regular_conditional_validation(node=node):
+                if type(node.orelse) is list:
+                    if len(node.orelse) > 0:
+                        if is_sought:
+                            return (bool(regular_conditional_validation(
+                                node=node.orelse[0])))
+                        else:
+                            return (not bool(regular_conditional_validation(
+                                node=node.orelse[0])))
+                    else:
+                        return (not is_sought)
+            if (
+                    comprehension_conditional_validation(node=node) or
+                    expressional_conditional_validation(node=node)
+            ):
+                return (not is_sought)
+            return False
+
+        def with_else_validation(is_sought, node=node):
+            if regular_conditional_validation(node=node):
+                current_node = node
+                last_else_test_is_if = False
+                while regular_conditional_validation(node=current_node):
+                    if type(current_node.orelse) is list:
+                        if len(current_node.orelse) == 0:
+                            last_else_test_is_if = True
+                            break
+                        else:
+                            current_node = current_node.orelse[0]
+                    else:
+                        current_node = current_node.orelse
+                if last_else_test_is_if:
+                    return (not is_sought)
+                else:
+                    return (is_sought)
+            elif expressional_conditional_validation(node=node):
+                if is_sought:
+                    return bool(node.orelse is not None)
+                else:
+                    return bool(node.orelse is None)
+            elif comprehension_conditional_validation(node=node):
+                return (not is_sought)
+            return False
+
+        def ifexp_validation(is_sought, node=node):
             if is_sought:
-                return bool(type(node) is ast.IfExp)
+                return expressional_conditional_validation(node=node)
             else:
-                return bool(type(node) is not ast.IfExp)
+                return (not expressional_conditional_validation(node=node))
         try:
             partial_validators = set([should_consider, basic_validation()])
             if _with_elif is not None:
-                partial_validators.add(
-                    bool(_with_elif) and
-                    (any([(type(possibly_orelse) == ast.If)
-                          for possibly_orelse in node.orelse])))
+                partial_validators.add(with_elif_validation(bool(_with_elif)))
             if _with_else is not None:
-                partial_validators.add(
-                    bool(_with_else) and bool(len(node.orelse) != 0))
+                partial_validators.add(with_else_validation(bool(_with_else)))
             if _is_ifexp is not None:
-                partial_validators.add(
-                    bool(_is_ifexp) and bool(type(node) == ast.IfExp))
+                partial_validators.add(ifexp_validation(bool(_is_ifexp)))
             return all(partial_validators)
         except AttributeError:
             return False
