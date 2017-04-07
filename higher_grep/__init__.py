@@ -72,6 +72,7 @@ def _Constraints_template():
                 'should_consider': None,
                 'error_type': None,
                 'error_message': None,
+                'cause': None,
             },
             'Yielding': {
                 'should_consider': None,
@@ -353,6 +354,10 @@ knowledge = {
     'comprehension_forms': {
         ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp
     },
+    'builtin_datatypes': {
+        type, int, float, long, bool, dict, set, frozenset, list, dict, bytes,
+        bytearray, memoryview
+    },
 }
 
 
@@ -475,12 +480,14 @@ class Action(object):
                   ('with_except_as_list', _with_except_as_list),
                   ('with_finally', _with_finally)])
 
-    def Raising(_error_type=None, _error_message=None, should_consider=True):
+    def Raising(_error_type=None, _error_message=None, _cause=None,
+                should_consider=True):
         return Action._constraint_modifier_localized(
             job='Raising',
             should_consider=should_consider,
-            args=[('error_type', _error_type), ('error_message',
-                                                _error_message)])
+            args=[('error_type', _error_type),
+                  ('error_message', _error_message),
+                  ('cause', _cause)])
 
     def Yielding(_yield_from, _in_comprehension, should_consider=True):
         return Action._constraint_modifier_localized(
@@ -1004,22 +1011,40 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Action_Raising(node, _error_type, _error_message, should_consider):
-        if not should_consider:
+    def Action_Raising(node, _error_type, _error_message, _cause,
+                       should_consider):
+        def basic_validation(node=node):
+            return bool(type(node) is ast.Raise)
+
+        def error_type_validation(error_type=_error_type, node=node):
+            if type(node.exc) is ast.Call:
+                return bool(error_type.__name__ == node.exc.func.id)
+            elif type(node.exc) is ast.Name:
+                return bool(error_type.__name__ == node.exc.id)
+            return False
+
+        def error_message_validation(error_message=_error_message, node=node):
+            if type(node.exc) is ast.Call:
+                if bool(len(node.exc.args) == 0):
+                    return bool(error_message in {None, ""})
+                if type(node.exc.args[0]) is ast.Str:
+                    return bool(error_message == node.exc.args[0].s)
+                if type(node.exc.args[0]) is ast.Num:
+                    return bool(error_message == node.exc.args[0].n)
+            return False
+
+        def cause_validation(cause=_cause, node=node):
+            if type(node.cause) is ast.Name:
+                return bool(cause == node.cause.id)
             return False
         try:
-            partial_validators = set()
-            partial_validators.add(bool(type(node) is ast.Raise))
+            partial_validators = set([should_consider, basic_validation()])
             if _error_type is not None:
-                partial_validators.add(
-                    bool(_error_type) and
-                    bool(_error_type.__name__ == node.exc.id))
+                partial_validators.add(error_type_validation())
             if _error_message is not None:
-                partial_validators.add(
-                    bool(_error_message) and bool(_error_message in {
-                        str(messages)
-                        for messages in node.exc.args
-                    }))
+                partial_validators.add(error_message_validation())
+            if _cause is not None:
+                partial_validators.add(cause_validation())
             return all(partial_validators)
         except AttributeError:
             return False
