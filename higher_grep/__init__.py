@@ -929,10 +929,10 @@ class _Validators(object):
             return False
 
     def Action_Deletion(node, should_consider):
-        def basic_validation():
+        def basic_validation(node=node):
             return bool(type(node) is ast.Delete)
         try:
-            partial_validators = set(should_consider, basic_validation())
+            partial_validators = set([should_consider, basic_validation()])
             return all(partial_validators)
         except AttributeError:
             return False
