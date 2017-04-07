@@ -1071,29 +1071,29 @@ class _Validators(object):
             return False
 
     def Action_Making_Global(node, _id, should_consider):
-        if not should_consider:
-            return False
+        def basic_validation(node=node):
+            return bool(type(node) is ast.Global)
+
+        def id_validation(_id=_id, node=node):
+            return bool(_id in {str(name) for name in node.names})
         try:
-            partial_validators = set()
-            partial_validators.add(bool(type(node) is ast.Global))
+            partial_validators = set([should_consider, basic_validation()])
             if _id is not None:
-                partial_validators.add(
-                    bool(_id) and
-                    bool(_id in [str(name) for name in node.names]))
+                partial_validators.add(id_validation(_id=_id))
             return all(partial_validators)
         except AttributeError:
             return False
 
     def Action_Making_Nonlocal(node, _id, should_consider):
-        if not should_consider:
-            return False
+        def basic_validation(node=node):
+            return bool(type(node) is ast.Nonlocal)
+
+        def id_validation(_id=_id, node=node):
+            return bool(_id in {str(name) for name in node.names})
         try:
-            partial_validators = set()
-            partial_validators.add(bool(type(node) is ast.Nonlocal))
+            partial_validators = set([should_consider, basic_validation()])
             if _id is not None:
-                partial_validators.add(
-                    bool(_id) and
-                    bool(_id in [str(name) for name in node.names]))
+                partial_validators.add(id_validation(_id=_id))
             return all(partial_validators)
         except AttributeError:
             return False
