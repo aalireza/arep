@@ -5,9 +5,14 @@ import os
 
 results_template = namedtuple('Continuing', 'Line Column')
 
-results = {results_template(x, y) for x, y in {
+
+def results_formatter(results):
+    return {results_template(x, y) for x, y in results}
+
+
+all_results = results_formatter({
     (5, 8), (9, 8)
-}}
+})
 
 
 @pytest.fixture
@@ -19,4 +24,4 @@ def grepper():
 
 def test_Continuing(grepper):
     grepper.add_constraint(hg.Action.Continuing())
-    assert results == set(grepper.get_all_results())
+    assert set(grepper.get_all_results()) == all_results
