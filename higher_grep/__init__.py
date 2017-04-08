@@ -426,8 +426,8 @@ def _update_knowledge_template(
                     name_kinds[result[0]][result[1]].append(
                         _Result(
                             name=results_name,
-                            line_number=node.lineno,
-                            column_number=node.col_offset
+                            line=node.lineno,
+                            column=node.col_offset
                         )
                     )
             except AttributeError:
@@ -1479,37 +1479,38 @@ class _Validators(object):
 
 
 class _Result(object):
-    def __init__(self, name, line_number, column_number):
-        self.name = name.replace('.', '_')
-        self.line_number = line_number
-        self.column_number = column_number
-        
+    def __init__(self, name, line, column):
+        self.name = name
+        self.line = line
+        self.column = column
+
     def __eq__(self, other):
         return bool(
             (self.name == other.name) and
-            (self.line_number == other.line_number) and
-            (self.column_number == other.column_number)
+            (self.line == other.line) and
+            (self.column == other.column)
         )
 
     def __lt__(self, other):
         return bool(
-            (self.line_number < other.line_number) or
-            (self.column_number < other.column_number)
+            (self.name == other.name) and (
+                (self.line < other.line) or
+                (self.column < other.column)
+            )
         )
 
     def __hash__(self):
-        return hash((self.name, self.line_number, self.column_number))
+        return hash((self.name, self.line, self.column))
 
     def __repr__(self):
-        return namedtuple(self.name, "Line Column")(
-            self.line_number, self.column_number
+        return namedtuple(self.name.replace('.', '_dot_'), "Line Column")(
+            self.line, self.column
         ).__repr__()
 
     def __str__(self):
         return namedtuple(self.name, "Line Column")(
-            self.line_number, self.column_number
+            self.line, self.column
         ).__str__()
-
 
 
 class Grepper(object):
@@ -1604,9 +1605,7 @@ class Grepper(object):
                     ) for validator_predicate in validator_predicates
             ]):
                 yield _Result(
-                    name=self.__name,
-                    line_number=node.lineno,
-                    column_number=node.col_offset
+                    name=self.__name, line=node.lineno, column=node.col_offset
                 )
 
     def get_all_results(self):

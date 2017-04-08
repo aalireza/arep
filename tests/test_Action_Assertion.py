@@ -1,14 +1,10 @@
-from collections import namedtuple
 import higher_grep as hg
 import pytest
 import os
 
 
-results_template = namedtuple('Assertion', 'Line Column')
-
-
 def results_formatter(results):
-    return {results_template(x, y) for x, y in results}
+    return {hg._Result('Assertion_py', x, y) for x, y in results}
 
 
 results_with_msg = results_formatter({(2, 0), (5, 4)})
