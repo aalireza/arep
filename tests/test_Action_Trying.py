@@ -5,16 +5,20 @@ import os
 
 results_template = namedtuple('Trying', 'Line Column')
 
-results_with_except_list = {
-    results_template(x, y) for x, y in {
-    }
-}
 
-results_with_finally = {results_template(x, y) for x, y in {(7, 0)}}
+def results_formatter(results):
+    return {results_template(x, y) for x, y in results}
 
-results = {
-    results_template(x, y) for x, y in {(2, 0), (7, 0), (17, 4)}
-}
+
+results_with_finally = results_formatter({
+    (7, 0)
+})
+
+results_misc = results_formatter({
+    (2, 0), (7, 0), (17, 4)
+})
+
+all_results = (results_with_finally | results_misc)
 
 
 @pytest.fixture
@@ -25,35 +29,35 @@ def grepper():
 
 def test_Trying(grepper):
     grepper.add_constraint(hg.Action.Trying())
-    assert results == set(grepper.get_all_results())
+    assert set(grepper.get_all_results()) == all_results
 
 
 @pytest.mark.parametrize(('_with_except_list', 'result'), [
-    (IndexError, {results_template(2, 0), results_template(7, 0)}),
-    ([IndexError, AttributeError], {results_template(7, 0)}),
-    (AttributeError, {results_template(7, 0)}),
-    (Exception, {results_template(17, 4)})
+    (IndexError, {(2, 0), (7, 0)}),
+    ([IndexError, AttributeError], {(7, 0)}),
+    (AttributeError, {(7, 0)}),
+    (Exception, {(17, 4)})
 ])
 def test_with_except_list(grepper, _with_except_list, result):
     grepper.add_constraint(hg.Action.Trying(
         _with_except_list=_with_except_list))
-    assert result == set(grepper.get_all_results())
+    assert set(grepper.get_all_results()) == results_formatter(result)
 
 
 @pytest.mark.parametrize(('_with_except_as_list', 'result'), [
-    ('e', {results_template(7, 0)}),
+    ('e', results_with_finally),
     ('z', set([]))
 ])
 def test_except_as_list(grepper, _with_except_as_list, result):
     grepper.add_constraint(hg.Action.Trying(
         _with_except_as_list=_with_except_as_list))
-    assert result == set(grepper.get_all_results())
+    assert set(grepper.get_all_results()) == results_formatter(result)
 
 
 @pytest.mark.parametrize(('_with_finally', 'result'), [
-    (True, {results_template(7, 0)}),
-    (False, (results - {results_template(7, 0)}))
+    (True, {(7, 0)}),
+    (False, set(all_results - {(7, 0)}))
 ])
 def test_with_finally(grepper, _with_finally, result):
     grepper.add_constraint(hg.Action.Trying(_with_finally=_with_finally))
-    assert result == set(grepper.get_all_results())
+    assert set(grepper.get_all_results()) == results_formatter(result)
