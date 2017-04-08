@@ -394,7 +394,7 @@ def _Knowledge_template():
 
 
 def _update_knowledge_template(
-        ast_tree_with_parent_pointers, knowledge_template, results_template,
+        ast_tree_with_parent_pointers, knowledge_template, results_name,
         _with_classes=True, _with_funcs=True):
     def func_name_checker(node):
         if type(node) is ast.FunctionDef:
@@ -410,8 +410,8 @@ def _update_knowledge_template(
         return False
 
     name_kinds = {
-        'Function': defaultdict(set),
-        'Class': defaultdict(set),
+        'Function': defaultdict(list),
+        'Class': defaultdict(list),
     }
     name_checkers = set([])
     if _with_funcs:
@@ -423,8 +423,12 @@ def _update_knowledge_template(
             try:
                 result = name_checker(node)
                 if result:
-                    name_kinds[result[0]][result[1]].add(
-                        results_template(node.lineno, node.col_offset)
+                    name_kinds[result[0]][result[1]].append(
+                        _Result(
+                            name=results_name,
+                            line_number=node.lineno,
+                            column_number=node.col_offset
+                        )
                     )
             except AttributeError:
                 pass
@@ -1244,13 +1248,13 @@ class _Validators(object):
 
         def function_filtering(node=node):
             try:
-                return bool(node != node._parent.func)
+                return (bool(node != node._parent.func))
             except AttributeError:
                 return True
 
         def class_base_filtering(node=node):
             try:
-                return bool(node not in node._parent.bases)
+                return (bool(node not in node._parent.bases))
             except AttributeError:
                 return True
 
@@ -1474,6 +1478,40 @@ class _Validators(object):
             return False
 
 
+class _Result(object):
+    def __init__(self, name, line_number, column_number):
+        self.name = name.replace('.', '_')
+        self.line_number = line_number
+        self.column_number = column_number
+        
+    def __eq__(self, other):
+        return bool(
+            (self.name == other.name) and
+            (self.line_number == other.line_number) and
+            (self.column_number == other.column_number)
+        )
+
+    def __lt__(self, other):
+        return bool(
+            (self.line_number < other.line_number) or
+            (self.column_number < other.column_number)
+        )
+
+    def __hash__(self):
+        return hash((self.name, self.line_number, self.column_number))
+
+    def __repr__(self):
+        return namedtuple(self.name, "Line Column")(
+            self.line_number, self.column_number
+        ).__repr__()
+
+    def __str__(self):
+        return namedtuple(self.name, "Line Column")(
+            self.line_number, self.column_number
+        ).__str__()
+
+
+
 class Grepper(object):
     def __init__(self, source_abs_path):
         assert os.path.exists(source_abs_path), "Path doesn't exist"
@@ -1481,17 +1519,13 @@ class Grepper(object):
             try:
                 self.__ast = _establish_parent_link(ast.parse(f.read()))
                 self.__source = f
-                self.__results_template = namedtuple(
-                    '_'.join(
-                        os.path.basename(source_abs_path).split('.')[:-1]
-                    ), 'Line Column')
+                self.__name = os.path.basename(source_abs_path)
                 self.__constraints_template = _Constraints_template()
                 self.__knowledge_template = _update_knowledge_template(
                     ast_tree_with_parent_pointers=self.__ast,
                     knowledge_template=_Knowledge_template(),
-                    results_template=self.__results_template
+                    results_name=self.__name
                 )
-                print(self.__knowledge_template)
             except TypeError as e:
                 print(e)
 
@@ -1569,7 +1603,11 @@ class Grepper(object):
                         node=node, _knowledge=self.get_knowledge()
                     ) for validator_predicate in validator_predicates
             ]):
-                yield self.__results_template(node.lineno, node.col_offset)
+                yield _Result(
+                    name=self.__name,
+                    line_number=node.lineno,
+                    column_number=node.col_offset
+                )
 
     def get_all_results(self):
         return list(self.run())
