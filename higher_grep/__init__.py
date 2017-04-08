@@ -489,7 +489,8 @@ class Action(object):
                   ('error_message', _error_message),
                   ('cause', _cause)])
 
-    def Yielding(_yield_from, _in_comprehension, should_consider=True):
+    def Yielding(_yield_from=None, _in_comprehension=None,
+                 should_consider=True):
         return Action._constraint_modifier_localized(
             job='Yielding',
             should_consider=should_consider,
@@ -1050,22 +1051,34 @@ class _Validators(object):
             return False
 
     def Action_Yielding(node, _in_comprehension, _yield_from, should_consider):
-        if not should_consider:
-            return False
+        def regular_yielding_validation(node=node):
+            return bool(type(node) is ast.Yield)
+
+        def in_comprehension_validation(is_sought, node=node):
+            if is_sought:
+                return bool(type(node) is ast.GeneratorExp)
+            return bool(type(node) is not ast.GeneratorExp)
+
+        def yield_from_validation(is_sought, node=node):
+            if is_sought:
+                return bool(type(node) is ast.YieldFrom)
+            return bool(type(node) is not ast.YieldFrom)
+
+        def basic_validation(node=node):
+            return bool(
+                regular_yielding_validation(node=node) or
+                in_comprehension_validation(is_sought=True, node=node) or
+                yield_from_validation(is_sought=True, node=node)
+            )
         try:
-            partial_validators = set()
-            if _incomprehension is not None:
-                if _in_comprehension:
-                    partial_validators.add(
-                        bool(
-                            type(node) in
-                            {ast.Yield, ast.YieldFrom, ast.GeneratorExp}))
-                else:
-                    partial_validators.add(
-                        bool(type(node) in {ast.Yield, ast.YieldFrom}))
-            if _yield_from is not None:
+            partial_validators = set([should_consider, basic_validation()])
+            if _in_comprehension is not None:
                 partial_validators.add(
-                    bool(_yield_from) and bool(type(node) is ast.YieldFrom))
+                    in_comprehension_validation(
+                        is_sought=bool(_in_comprehension)))
+            if _yield_from is not None:
+                partial_validators.add(yield_from_validation(
+                    is_sought=bool(_yield_from)))
             return all(partial_validators)
         except AttributeError:
             return False
