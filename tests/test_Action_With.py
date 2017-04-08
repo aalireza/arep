@@ -5,7 +5,14 @@ import os
 
 results_template = namedtuple('With', 'Line Column')
 
-results = {results_template(x, y) for x, y in {(1, 0), (7, 4)}}
+
+def results_formatter(results):
+    return {results_template(x, y) for x, y in results}
+
+
+all_results = results_formatter({
+    (1, 0), (7, 4)
+})
 
 
 @pytest.fixture
@@ -16,13 +23,13 @@ def grepper():
 
 def test_With(grepper):
     grepper.add_constraint(hg.Action.With())
-    assert results == set(grepper.get_all_results())
+    assert set(grepper.get_all_results()) == all_results
 
 
 @pytest.mark.parametrize(('_as', 'result'), [
-    ('f', {results_template(1, 0)}),
+    ('f', {(1, 0)}),
     ('g', set([]))
 ])
 def test_with_as(grepper, _as, result):
     grepper.add_constraint(hg.Action.With(_as=_as))
-    assert result == set(grepper.get_all_results())
+    assert set(grepper.get_all_results()) == results_formatter(result)
