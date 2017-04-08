@@ -5,9 +5,14 @@ import os
 
 results_template = namedtuple('Breaking', 'Line Column')
 
-results = {results_template(x, y) for x, y in {
+
+def results_formatter(results):
+    return {results_template(x, y) for x, y in results}
+
+
+all_results = results_formatter({
     (2, 4), (6, 8), (15, 12)
-}}
+})
 
 
 @pytest.fixture
@@ -19,4 +24,4 @@ def grepper():
 
 def test_Breaking(grepper):
     grepper.add_constraint(hg.Action.Breaking())
-    assert results == set(grepper.get_all_results())
+    assert set(grepper.get_all_results()) == all_results
