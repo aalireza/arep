@@ -86,7 +86,19 @@ def _Constraints_template():
             'Making_Nonlocal': {
                 'should_consider': None,
                 'id': None,
-            }
+            },
+            'Passing': {
+                'should_consider': None,
+            },
+            'Returning': {
+                'should_consider': None,
+            },
+            'Breaking': {
+                'should_consider': None,
+            },
+            'Continuing': {
+                'should_consider': None,
+            },
         },
         'Kind': {
             'Variables': {
@@ -508,6 +520,22 @@ class Action(object):
             job='Making_Nonlocal',
             should_consider=should_consider,
             args=[('id', _id)])
+
+    def Passing(should_consider=True):
+        return Action._constraint_modifier_localized(
+            job='Passing', should_consider=should_consider)
+
+    def Returning(should_consider=True):
+        return Action._constraint_modifier_localized(
+            job='Returning', should_consider=should_consider)
+
+    def Breaking(should_consider=True):
+        return Action._constraint_modifier_localized(
+            job='Breaking', should_consider=should_consider)
+
+    def Continuing(should_consider=True):
+        return Action._constraint_modifier_localized(
+            job='Continuing', should_consider=should_consider)
 
 
 class Kind(object):
@@ -1107,6 +1135,42 @@ class _Validators(object):
             partial_validators = set([should_consider, basic_validation()])
             if _id is not None:
                 partial_validators.add(id_validation(_id=_id))
+            return all(partial_validators)
+        except AttributeError:
+            return False
+
+    def Action_Passing(node, should_consider):
+        def basic_validation(node=node):
+            return bool(type(node) is ast.Pass)
+        try:
+            partial_validators = set([should_consider, basic_validation()])
+            return all(partial_validators)
+        except AttributeError:
+            return False
+
+    def Action_Returning(node, should_consider):
+        def basic_validation(node=node):
+            pass
+        try:
+            partial_validators = set([should_consider, basic_validation()])
+            return all(partial_validators)
+        except AttributeError:
+            return False
+
+    def Action_Breaking(node, should_consider):
+        def basic_validation(node=node):
+            pass
+        try:
+            partial_validators = set([should_consider, basic_validation()])
+            return all(partial_validators)
+        except AttributeError:
+            return False
+
+    def Action_Continuing(node, should_consider):
+        def basic_validation(node=node):
+            pass
+        try:
+            partial_validators = set([should_consider, basic_validation()])
             return all(partial_validators)
         except AttributeError:
             return False
