@@ -5,31 +5,32 @@ import os
 
 results_template = namedtuple('Looping', 'Line Column')
 
-results_for_else = {results_template(15, 0)}
 
-results_with_break = {
-    results_template(x, y) for x, y in {
-        (21, 0), (22, 4), (27, 0), (34, 4)
-    }
-}
+def results_formatter(results):
+    return {results_template(x, y) for x, y in results}
 
-results_infinite = {
-    results_template(x, y) for x, y in {(21, 0), (40, 4), (34, 4)}
-}
 
-results_for = {
-    results_template(x, y) for x, y in {
-        (1, 0), (15, 0), (2, 4), (8, 4), (11, 4), (13, 5), (22, 4)
-    }
-}
+results_for_else = results_formatter({
+    (15, 0)
+})
 
-results_while = {
-    results_template(x, y) for x, y in {
-        (21, 0), (27, 0), (33, 0), (39, 0), (34, 4), (40, 4)
-    }
-}
+results_with_break = results_formatter({
+    (21, 0), (22, 4), (27, 0), (34, 4)
+})
 
-results = set(results_for | results_while)
+results_infinite = results_formatter({
+    (21, 0), (40, 4), (34, 4)
+})
+
+results_for = results_formatter({
+    (1, 0), (15, 0), (2, 4), (8, 4), (11, 4), (13, 5), (22, 4)
+})
+
+results_while = results_formatter({
+    (21, 0), (27, 0), (33, 0), (39, 0), (34, 4), (40, 4)
+})
+
+all_results = set(results_for | results_while)
 
 
 @pytest.fixture
@@ -40,7 +41,7 @@ def grepper():
 
 def test_Looping(grepper):
     grepper.add_constraint(hg.Action.Looping())
-    assert results == set(grepper.get_all_results())
+    assert set(grepper.get_all_results()) == all_results
 
 
 @pytest.mark.parametrize(('_for'), [True, False])
@@ -50,7 +51,7 @@ def test_from(grepper, _for):
     if _for:
         assert obtained_results == results_for
     else:
-        assert obtained_results == (results - results_for)
+        assert obtained_results == (all_results - results_for)
 
 
 @pytest.mark.parametrize(('_while'), [True, False])
@@ -60,7 +61,7 @@ def test_while(grepper, _while):
     if _while:
         assert obtained_results == results_while
     else:
-        assert obtained_results == (results - results_while)
+        assert obtained_results == (all_results - results_while)
 
 
 @pytest.mark.parametrize(('_for_else'), [True, False])
@@ -70,7 +71,7 @@ def test_for_else(grepper, _for_else):
     if _for_else:
         assert obtained_results == results_for_else
     else:
-        assert obtained_results == (results - results_for_else)
+        assert obtained_results == (all_results - results_for_else)
 
 
 @pytest.mark.parametrize(('_while'), [True, False, None])
@@ -85,9 +86,9 @@ def test_with_break(grepper, _with_break, _for, _while):
     elif _with_break is True:
         target_result = results_with_break.copy()
     elif _with_break is None:
-        target_result = results.copy()
+        target_result = all_results.copy()
     elif _with_break is False:
-        target_result = (results - results_with_break)
+        target_result = (all_results - results_with_break)
     if (_for is True) or (_while is False):
         target_result -= results_while
     elif (_for is False) or (_while is True):
@@ -107,9 +108,9 @@ def test_non_terminating_test(grepper, _for, _while, infinite):
     elif infinite is True:
         target_result = results_infinite.copy()
     elif infinite is None:
-        target_result = results.copy()
+        target_result = all_results.copy()
     elif infinite is False:
-        target_result = (results - results_infinite)
+        target_result = (all_results - results_infinite)
     if (_for is True) or (_while is False):
         target_result -= results_while
     elif (_for is False) or (_while is True):
