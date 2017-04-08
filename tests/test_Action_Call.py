@@ -5,10 +5,14 @@ import os
 
 results_template = namedtuple('Call', 'Line Column')
 
-results = {
-    results_template(x, y)
-    for x, y in {(4, 4), (5, 0), (6, 0), (15, 4), (6, 6), (9, 11), (9, 15)}
-}
+
+def results_formatter(results):
+    return {results_template(x, y) for x, y in results}
+
+
+all_results = results_formatter({
+    (4, 4), (5, 0), (6, 0), (15, 4), (6, 6), (9, 11), (9, 15)
+})
 
 
 @pytest.fixture
@@ -19,4 +23,4 @@ def grepper():
 
 def test_call(grepper):
     grepper.add_constraint(hg.Action.Call())
-    assert results == set(grepper.get_all_results())
+    assert set(grepper.get_all_results()) == all_results
