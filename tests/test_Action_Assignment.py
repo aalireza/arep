@@ -3,15 +3,20 @@ import higher_grep as hg
 import pytest
 import os
 
-results_template = namedtuple('Call', 'Line Column')
+results_template = namedtuple('Assignment', 'Line Column')
 
-aug_assign_results = {results_template(9, 4)}
 
-results = {
-    results_template(x, y)
-    for x, y in {(5, 0), (11, 0), (12, 0), (16, 0), (18, 0), (2, 4), (8, 4),
-                 (9, 4)}
-}
+def results_formatter(results):
+    return {results_template(x, y) for x, y in results}
+
+
+aug_assign_results = results_formatter({
+    (9, 4)
+})
+
+all_results = results_formatter({
+    (5, 0), (11, 0), (12, 0), (16, 0), (18, 0), (2, 4), (8, 4), (9, 4)
+})
 
 
 @pytest.fixture
@@ -22,7 +27,7 @@ def grepper():
 
 def test_Assignment(grepper):
     grepper.add_constraint(hg.Action.Assignment())
-    assert results == set(grepper.get_all_results())
+    assert set(grepper.get_all_results()) == all_results
 
 
 @pytest.mark.parametrize(('aug_status'), [True, False])
@@ -31,4 +36,6 @@ def test_Assignment_aug(grepper, aug_status):
     if aug_status:
         assert set(grepper.get_all_results()) == aug_assign_results
     else:
-        assert set(grepper.get_all_results()) == (results - aug_assign_results)
+        assert set(grepper.get_all_results()) == (
+            all_results - aug_assign_results
+        )
