@@ -366,10 +366,26 @@ knowledge = {
     'comprehension_forms': {
         ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp
     },
-    'builtin_datatypes': {
-        type, int, float, long, bool, dict, set, frozenset, list, dict, bytes,
-        bytearray, memoryview
-    },
+    'builtin_kinds': {
+        'numbers': {
+            int, float, long, complex
+        },
+        'collections': {
+            dict, set, frozenset, list, bytearray
+        },
+        'data': {
+            type, bytes, bytearray, memoryview
+        },
+        'slices': {
+            str, list, bytearray, bytes
+        },
+        'text': {
+            str
+        },
+        'logic': {
+            bool
+        }
+    }
 }
 
 
@@ -1184,15 +1200,11 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Kind_Variables(node, _id, _is_attribute, _in_global, should_consider):
-        builtin_datatypes = {
-            type, int, float, long, bool, dict, set, frozenset, list, dict,
-            bytes, bytearray, memoryview
-        }
-        if not should_consider:
-            return False
+    def Kind_Variables(node, _id, _is_attribute, should_consider):
+        def basic_validation(node=node):
+            pass
         try:
-            partial_validators = set()
+            partial_validators = set([should_consider, basic_validation()])
             partial_validators.add(
                 bool(type(node) is ast.Name) or
                 bool(node != node._parent.func))
@@ -1221,23 +1233,30 @@ class _Validators(object):
             return False
 
     def Kind_STD_Types(node, _type, should_consider):
-        builtin_datatypes = {
-            type, int, float, long, bool, dict, set, frozenset, list, dict,
-            bytes, bytearray, memoryview
-        }
-        if not should_consider:
+        def basic_validation(node=node):
+            if bool(type(node) is ast.Name):
+                return bool(
+                    node.id in [
+                        builtin_type.__name__
+                        for builtin_type in {
+                                builtin_type
+                                for builtin_kind_set in knowledge[
+                                        'builtin_kinds'].values()
+                                for builtin_type in builtin_kind_set
+                        }
+                    ]
+                )
             return False
+
+        def type_name_validation(_type, node=node):
+            if _type:
+                return bool(node.id == _type.__name__)
+            return False
+
         try:
-            partial_validators = set()
-            partial_validators.add(
-                bool(type(node) is ast.Name) and bool(
-                    node.id in list(
-                        map(lambda x: x.__name__, builtin_datatypes))))
+            partial_validators = set([should_consider, basic_validation()])
             if _type is not None:
-                if _type:
-                    partial_validators.add(node.id == _type.__name__)
-                else:
-                    partial_validators.add(True)
+                partial_validators.add(type_name_validation(_type))
             return all(partial_validators)
         except AttributeError:
             return False
