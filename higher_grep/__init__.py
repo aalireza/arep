@@ -1,5 +1,5 @@
 from __future__ import absolute_import, division, print_function
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from functools import partial
 from inspect import getfullargspec as spec
 import ast
@@ -394,7 +394,7 @@ def _Knowledge_template():
 
 
 def _update_knowledge_template(
-        ast_tree_with_parent_pointers, knowledge_template,
+        ast_tree_with_parent_pointers, knowledge_template, results_template,
         _with_classes=True, _with_funcs=True):
     def func_name_checker(node):
         if type(node) is ast.FunctionDef:
@@ -410,8 +410,8 @@ def _update_knowledge_template(
         return False
 
     name_kinds = {
-        'Function': set(),
-        'Class': set(),
+        'Function': defaultdict(set),
+        'Class': defaultdict(set),
     }
     name_checkers = set([])
     if _with_funcs:
@@ -423,7 +423,9 @@ def _update_knowledge_template(
             try:
                 result = name_checker(node)
                 if result:
-                    name_kinds[result[0]].add(result[1])
+                    name_kinds[result[0]][result[1]].add(
+                        results_template(node.lineno, node.col_offset)
+                    )
             except AttributeError:
                 pass
 
@@ -1479,14 +1481,17 @@ class Grepper(object):
             try:
                 self.__ast = _establish_parent_link(ast.parse(f.read()))
                 self.__source = f
+                self.__results_template = namedtuple(
+                    '_'.join(
+                        os.path.basename(source_abs_path).split('.')[:-1]
+                    ), 'Line Column')
                 self.__constraints_template = _Constraints_template()
                 self.__knowledge_template = _update_knowledge_template(
                     ast_tree_with_parent_pointers=self.__ast,
-                    knowledge_template=_Knowledge_template()
+                    knowledge_template=_Knowledge_template(),
+                    results_template=self.__results_template
                 )
-                self.__result_template = namedtuple('_'.join(
-                    os.path.basename(source_abs_path).split('.')[:-1]),
-                                                    'Line Column')
+                print(self.__knowledge_template)
             except TypeError as e:
                 print(e)
 
@@ -1564,8 +1569,7 @@ class Grepper(object):
                         node=node, _knowledge=self.get_knowledge()
                     ) for validator_predicate in validator_predicates
             ]):
-                print(self.get_knowledge())
-                yield self.__result_template(node.lineno, node.col_offset)
+                yield self.__results_template(node.lineno, node.col_offset)
 
     def get_all_results(self):
         return list(self.run())
