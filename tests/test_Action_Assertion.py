@@ -3,8 +3,14 @@ import pytest
 import os
 
 
-def results_formatter(results):
-    return {hg._Result('Assertion_py', x, y) for x, y in results}
+def results_formatter(coordinates, name="Assertion.py"):
+    results = set([])
+    for result in coordinates:
+        if type(result) is hg._Result:
+            results.add(result)
+        else:
+            results.add(hg._Result(name, result[0], result[1]))
+    return results
 
 
 results_with_msg = results_formatter({(2, 0), (5, 4)})

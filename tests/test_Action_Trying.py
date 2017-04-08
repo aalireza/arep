@@ -1,13 +1,16 @@
-from collections import namedtuple
 import higher_grep as hg
 import pytest
 import os
 
-results_template = namedtuple('Trying', 'Line Column')
 
-
-def results_formatter(results):
-    return {results_template(x, y) for x, y in results}
+def results_formatter(coordinates, name="Trying.py"):
+    results = set([])
+    for result in coordinates:
+        if type(result) is hg._Result:
+            results.add(result)
+        else:
+            results.add(hg._Result(name, result[0], result[1]))
+    return results
 
 
 results_with_finally = results_formatter({
@@ -56,7 +59,7 @@ def test_except_as_list(grepper, _with_except_as_list, result):
 
 @pytest.mark.parametrize(('_with_finally', 'result'), [
     (True, {(7, 0)}),
-    (False, set(all_results - {(7, 0)}))
+    (False, (all_results - results_formatter({(7, 0)})))
 ])
 def test_with_finally(grepper, _with_finally, result):
     grepper.add_constraint(hg.Action.Trying(_with_finally=_with_finally))

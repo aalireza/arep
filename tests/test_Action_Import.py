@@ -1,13 +1,16 @@
-from collections import namedtuple
 import higher_grep as hg
 import pytest
 import os
 
-results_template = namedtuple('Import', 'Line Column')
 
-
-def results_formatter(results):
-    return {results_template(x, y) for x, y in results}
+def results_formatter(coordinates, name="Import.py"):
+    results = set([])
+    for result in coordinates:
+        if type(result) is hg._Result:
+            results.add(result)
+        else:
+            results.add(hg._Result(name, result[0], result[1]))
+    return results
 
 
 results_with_from = results_formatter({
