@@ -3,6 +3,7 @@ from collections import namedtuple, defaultdict
 from functools import partial
 from inspect import getfullargspec as spec
 import ast
+import keyword
 import os
 import sys
 
@@ -105,6 +106,7 @@ def _Constraints_template():
                 'should_consider': None,
                 'id': None,
                 'is_attribute': None,
+                'is_argument': None,
             },
             'STD_Types': {
                 'should_consider': None,
@@ -168,20 +170,11 @@ def _Constraints_template():
 def _establish_parent_link(tree):
     to_be_processed = [tree]
     while to_be_processed:
-        try:
-            current_parent = to_be_processed.pop(0)
-            children = current_parent.body
-            for child in children:
-                child._parent = current_parent
-            to_be_processed.extend(children)
-        except AttributeError:
-            if to_be_processed:
-                to_be_processed.pop(0)
-        except IndexError:
-            continue
-    if not to_be_processed:
-        return tree
-    raise Exception
+        current_parent = to_be_processed.pop(0)
+        for child in ast.iter_child_nodes(current_parent):
+            child._parent = current_parent
+        to_be_processed.extend(list(ast.iter_child_nodes(current_parent)))
+    return tree
 
 
 def count_arity(func):
@@ -364,32 +357,37 @@ def _Knowledge_template():
         'comprehension_forms': {
             ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp
         },
-        'builtin_kinds': {
-            'numbers': {
-                int, float, long, complex
-            },
-            'collections': {
-                dict, set, frozenset, list, bytearray
-            },
-            'data': {
-                type, bytes, bytearray, memoryview
-            },
-            'slices': {
-                str, list, bytearray, bytes
-            },
-            'text': {
-                str
-            },
-            'logic': {
-                bool
+        'builtins': {
+            'keywords': set(set(keyword.kwlist) | {'self'}),
+            'kinds': {
+                'numbers': {
+                    int, float, long, complex
+                },
+                'collections': {
+                    dict, set, frozenset, list, bytearray
+                },
+                'data': {
+                    type, bytes, bytearray, memoryview
+                },
+                'slices': {
+                    str, list, bytearray, bytes
+                },
+                'text': {
+                    str
+                },
+                'logic': {
+                    bool
+                }
             }
         }
     }
-    _knowledge['builtin_types'] = {
+    _knowledge['builtins']['types'] = {
         builtin_type
-        for builtin_kind_set in _knowledge['builtin_kinds'].values()
+        for builtin_kind_set in _knowledge['builtins']['kinds'].values()
         for builtin_type in builtin_kind_set
     }
+    _knowledge['builtins']['all'] = (set(dir(__builtins__)) |
+                                     _knowledge['builtins']['keywords'])
     return _knowledge
 
 
@@ -605,10 +603,12 @@ class Kind(object):
     _constraint_modifier_localized = partial(
         _constraint_template_modifier_func_maker, main='Kind')
 
-    def Variables(_id=None, _is_attribute=None, should_consider=True):
+    def Variables(_id=None, _is_attribute=None, _is_argument=None,
+                  should_consider=True):
         return Kind._constraint_modifier_localized(
             job='Variables', should_consider=should_consider, args=[
-                ('id', _id), ('is_attribute', _is_attribute)
+                ('id', _id), ('is_attribute', _is_attribute),
+                ('is_argument', _is_argument),
             ])
 
     def STD_Types(_type=None, should_consider=True):
@@ -1239,41 +1239,66 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Kind_Variables(node, _id, _is_attribute, should_consider, _knowledge):
+    def Kind_Variables(node, _id, _is_attribute, _is_argument,
+                       should_consider, _knowledge):
+
         def regular_name_validation(node=node):
             return bool(type(node) is ast.Name)
 
-        def builtin_type_filtering(node=node):
-            return bool(type(node) not in _knowledge['builtin_types'])
+        def argument_validation(is_sought, node=node):
+            if is_sought is None:
+                return True
+            elif is_sought:
+                return bool(type(node) is ast.arg)
+            else:
+                return bool(type(node) is not ast.arg)
+
+        def builtin_filtering(node=node):
+            return bool(type(node) not in _knowledge['builtins']['all'])
 
         def function_filtering(node=node):
             try:
                 return (bool(node != node._parent.func))
             except AttributeError:
-                return True
+                return False
 
         def class_base_filtering(node=node):
             try:
                 return (bool(node not in node._parent.bases))
             except AttributeError:
+                return False
+
+        # def initialization_filtering(node=node):
+        #     return False
+
+        def is_attribute_validation(is_sought, node=node):
+            if is_sought is None:
                 return True
+            elif is_sought:
+                return (bool(type(node._parent) is ast.Attribute) and
+                        bool(type(node._parent._parent) is not ast.Call))
+            else:
+                return (bool(type(node._parent) is not ast.Attribute) or
+                        bool(type(node._parent._parent) is ast.Call))
 
         def basic_validation(node=node):
-            return bool(regular_name_validation(node=node) and
-                        builtin_type_filtering(node=node) and
-                        function_filtering(node=node))
+            return bool(
+                any([builtin_filtering(node=node),
+                     is_attribute_validation(is_sought=None, node=node),
+                     argument_validation(is_sought=None, node=node)]) and
+                # (initialization_filtering(node=node) and
+                 (function_filtering(node=node) and
+                 class_base_filtering(node=node))
+            )
 
         def id_validation(_id, node=node):
+            if argument_validation(is_sought=True, node=node):
+                return bool(_id == node.arg)
             try:
                 return bool(_id == node.id)
             except AttributeError:
                 return False
 
-        def is_attribute_validation(is_sought, node=node):
-            if is_sought:
-                return bool(type(node._parent) is ast.Attribute)
-            else:
-                return bool(type(node._parent) is not ast.Attribute)
         try:
             partial_validators = set([should_consider, basic_validation()])
             if _id is not None:
@@ -1281,6 +1306,9 @@ class _Validators(object):
             if _is_attribute is not None:
                 partial_validators.add(is_attribute_validation(
                     is_sought=bool(_is_attribute)))
+            if _is_argument is not None:
+                partial_validators.add(argument_validation(
+                    is_sought=bool(_is_argument)))
             return all(partial_validators)
         except AttributeError:
             return False
@@ -1291,7 +1319,7 @@ class _Validators(object):
                 return bool(
                     node.id in [
                         builtin_type.__name__
-                        for builtin_type in _knowledge['builtin_types']
+                        for builtin_type in _knowledge['builtins']['types']
                     ]
                 )
             return False
