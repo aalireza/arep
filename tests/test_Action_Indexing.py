@@ -5,9 +5,14 @@ import os
 
 results_template = namedtuple('Indexing', 'Line Column')
 
-results = {results_template(x, y) for x, y in {
+
+def results_formatter(results):
+    return {results_template(x, y) for x, y in results}
+
+
+all_results = results_formatter({
     (1, 4), (3, 5), (9, 7), (12, 10)
-}}
+})
 
 
 @pytest.fixture
@@ -18,4 +23,4 @@ def grepper():
 
 def test_Indexing(grepper):
     grepper.add_constraint(hg.Action.Indexing())
-    assert results == set(grepper.get_all_results())
+    assert set(grepper.get_all_results()) == all_results
