@@ -1168,7 +1168,7 @@ class _Validators(object):
 
     def Action_Breaking(node, should_consider):
         def basic_validation(node=node):
-            pass
+            return bool(type(node) is ast.Break)
         try:
             partial_validators = set([should_consider, basic_validation()])
             return all(partial_validators)
