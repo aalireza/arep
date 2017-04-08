@@ -105,7 +105,6 @@ def _Constraints_template():
                 'should_consider': None,
                 'id': None,
                 'is_attribute': None,
-                'in_global': None,
             },
             'STD_Types': {
                 'should_consider': None,
@@ -114,7 +113,6 @@ def _Constraints_template():
             'Functions': {
                 'should_consider': None,
                 'id': None,
-                'in_global': None,
                 'is_lambda': None,
                 'is_decorator': None,
             },
@@ -125,7 +123,6 @@ def _Constraints_template():
             'Classes': {
                 'should_consider': None,
                 'id': None,
-                'in_global': None,
                 'superclass_type': None,
             },
             'Attributes': {
@@ -362,31 +359,78 @@ def _ast_mapped_operators():
     return ast_mappings
 
 
-knowledge = {
-    'comprehension_forms': {
-        ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp
-    },
-    'builtin_kinds': {
-        'numbers': {
-            int, float, long, complex
+def _Knowledge_template():
+    _knowledge = {
+        'comprehension_forms': {
+            ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp
         },
-        'collections': {
-            dict, set, frozenset, list, bytearray
-        },
-        'data': {
-            type, bytes, bytearray, memoryview
-        },
-        'slices': {
-            str, list, bytearray, bytes
-        },
-        'text': {
-            str
-        },
-        'logic': {
-            bool
+        'builtin_kinds': {
+            'numbers': {
+                int, float, long, complex
+            },
+            'collections': {
+                dict, set, frozenset, list, bytearray
+            },
+            'data': {
+                type, bytes, bytearray, memoryview
+            },
+            'slices': {
+                str, list, bytearray, bytes
+            },
+            'text': {
+                str
+            },
+            'logic': {
+                bool
+            }
         }
     }
-}
+    _knowledge['builtin_types'] = {
+        builtin_type
+        for builtin_kind_set in _knowledge['builtin_kinds'].values()
+        for builtin_type in builtin_kind_set
+    }
+    return _knowledge
+
+
+def _update_knowledge_template(
+        ast_tree_with_parent_pointers, knowledge_template,
+        _with_classes=True, _with_funcs=True):
+    def func_name_checker(node):
+        if type(node) is ast.FunctionDef:
+            return ('Function', node.name)
+        elif type(node) is ast.Lambda:
+            if type(node._parent) is ast.Call:
+                return ('Function', ast.Lambda)
+        return False
+
+    def class_name_checker(node):
+        if type(node) is ast.ClassDef:
+            return ('Class', node.name)
+        return False
+
+    name_kinds = {
+        'Function': set(),
+        'Class': set(),
+    }
+    name_checkers = set([])
+    if _with_funcs:
+        name_checkers.add(func_name_checker)
+    if _with_classes:
+        name_checkers.add(class_name_checker)
+    for node in ast.walk(ast_tree_with_parent_pointers):
+        for name_checker in name_checkers:
+            try:
+                result = name_checker(node)
+                if result:
+                    name_kinds[result[0]].add(result[1])
+            except AttributeError:
+                pass
+
+    for name_kind, names_set in name_kinds.items():
+        if len(names_set):
+            knowledge_template[name_kind] = names_set
+    return knowledge_template
 
 
 def _comparison_evaluator(node):
@@ -440,16 +484,13 @@ class Action(object):
         return Action._constraint_modifier_localized(
             job='Initialization', should_consider=should_consider)
 
-    def Import(_id=None,
-               _from=None,
-               _from_id=None,
-               _as=None,
+    def Import(_id=None, _from=None, _from_id=None, _as=None,
                should_consider=True):
         return Action._constraint_modifier_localized(
-            job='Import',
-            should_consider=should_consider,
-            args=[('id', _id), ('from', _from), ('from_id', _from_id), ('as',
-                                                                        _as)])
+            job='Import', should_consider=should_consider, args=[
+                ('id', _id), ('from', _from), ('from_id', _from_id),
+                ('as', _as)
+            ])
 
     def Definition(should_consider=True):
         return Action._constraint_modifier_localized(
@@ -458,32 +499,34 @@ class Action(object):
     def Assignment(_with_op=None, should_consider=True):
         return Action._constraint_modifier_localized(
             job='Assignment', should_consider=should_consider, args=[
-                ('with_op', _with_op)])
+                ('with_op', _with_op)
+            ])
 
     def Assertion(_with_error_msg=None, _error_msg_content=None,
                   should_consider=True):
         return Action._constraint_modifier_localized(
             job='Assertion', should_consider=should_consider, args=[
                 ('with_error_msg', _with_error_msg),
-                ('error_msg_content', _error_msg_content)])
+                ('error_msg_content', _error_msg_content)
+            ])
 
     def Looping(_for=None, _while=None, _for_else=None,
                 _with_break=None, _with_non_terminating_test=None,
-                should_consider=True):
+                should_consider=True,):
         return Action._constraint_modifier_localized(
-            job='Looping',
-            should_consider=should_consider,
-            args=[('for', _for), ('while', _while), ('for_else', _for_else),
-                  ('with_break', _with_break),
-                  ('with_non_terminating_test', _with_non_terminating_test)])
+            job='Looping', should_consider=should_consider, args=[
+                ('for', _for), ('while', _while), ('for_else', _for_else),
+                ('with_break', _with_break),
+                ('with_non_terminating_test', _with_non_terminating_test)
+            ])
 
     def Conditional(_with_elif=None, _with_else=None, _is_ifexp=None,
                     should_consider=True):
         return Action._constraint_modifier_localized(
-            job='Conditional',
-            should_consider=should_consider,
-            args=[('with_elif', _with_elif), ('with_else', _with_else),
-                  ('is_ifexp', _is_ifexp)])
+            job='Conditional', should_consider=should_consider, args=[
+                ('with_elif', _with_elif), ('with_else', _with_else),
+                ('is_ifexp', _is_ifexp)
+            ])
 
     def With(_as=None, should_consider=True):
         return Action._constraint_modifier_localized(
@@ -497,45 +540,43 @@ class Action(object):
         return Action._constraint_modifier_localized(
             job='Indexing', should_consider=should_consider)
 
-    def Trying(_with_except_list=None,
-               _with_except_as_list=None,
-               _with_finally=None,
-               should_consider=True):
+    def Trying(_with_except_list=None, _with_except_as_list=None,
+               _with_finally=None, should_consider=True):
         return Action._constraint_modifier_localized(
-            job='Trying',
-            should_consider=should_consider,
-            args=[('with_except_list', _with_except_list),
-                  ('with_except_as_list', _with_except_as_list),
-                  ('with_finally', _with_finally)])
+            job='Trying', should_consider=should_consider, args=[
+                ('with_except_list', _with_except_list),
+                ('with_except_as_list', _with_except_as_list),
+                ('with_finally', _with_finally)
+            ])
 
     def Raising(_error_type=None, _error_message=None, _cause=None,
                 should_consider=True):
         return Action._constraint_modifier_localized(
-            job='Raising',
-            should_consider=should_consider,
-            args=[('error_type', _error_type),
-                  ('error_message', _error_message),
-                  ('cause', _cause)])
+            job='Raising', should_consider=should_consider, args=[
+                ('error_type', _error_type),
+                ('error_message', _error_message),
+                ('cause', _cause)
+            ])
 
     def Yielding(_yield_from=None, _in_comprehension=None,
                  should_consider=True):
         return Action._constraint_modifier_localized(
-            job='Yielding',
-            should_consider=should_consider,
-            args=[('in_comprehension', _in_comprehension), ('yield_from',
-                                                            _yield_from)])
+            job='Yielding', should_consider=should_consider, args=[
+                ('in_comprehension', _in_comprehension),
+                ('yield_from',_yield_from)
+            ])
 
     def Making_Global(_id=None, should_consider=True):
         return Action._constraint_modifier_localized(
-            job='Making_Global',
-            should_consider=should_consider,
-            args=[('id', _id)])
+            job='Making_Global',should_consider=should_consider, args=[
+                ('id', _id)
+            ])
 
     def Making_Nonlocal(_id=None, should_consider=True):
         return Action._constraint_modifier_localized(
-            job='Making_Nonlocal',
-            should_consider=should_consider,
-            args=[('id', _id)])
+            job='Making_Nonlocal', should_consider=should_consider, args=[
+                ('id', _id)
+            ])
 
     def Passing(should_consider=True):
         return Action._constraint_modifier_localized(
@@ -558,86 +599,71 @@ class Kind(object):
     _constraint_modifier_localized = partial(
         _constraint_template_modifier_func_maker, main='Kind')
 
-    def Variables(_id=None,
-                  _is_attribute=None,
-                  _in_global=None,
-                  should_consider=True):
+    def Variables(_id=None, _is_attribute=None, should_consider=True):
         return Kind._constraint_modifier_localized(
-            job='Variables',
-            should_consider=should_consider,
-            args=[('id', _id), ('is_attribute', _is_attribute), ('in_global',
-                                                                 _in_global)])
+            job='Variables', should_consider=should_consider, args=[
+                ('id', _id), ('is_attribute', _is_attribute)
+            ])
 
     def STD_Types(_type=None, should_consider=True):
         return Kind._constraint_modifier_localized(
-            job='STD_Types',
-            should_consider=should_consider,
-            args=[('type', _type)])
+            job='STD_Types', should_consider=should_consider, args=[
+                ('type', _type)
+            ])
 
-    def Functions(_id=None,
-                  _in_global=None,
-                  _is_lambda=None,
-                  _is_decorator=None,
+    def Functions(_id=None, _is_lambda=None, _is_decorator=None,
                   should_consider=True):
         return Kind._constraint_modifier_localized(
-            job='Functions',
-            should_consider=should_consider,
-            args=[('id', _id), ('in_global', _in_global),
-                  ('is_lambda', _is_lambda), ('is_decorator', _is_decorator)])
+            job='Functions', should_consider=should_consider, args=[
+                ('id', _id), ('is_lambda', _is_lambda),
+                ('is_decorator', _is_decorator)
+            ])
 
     def Decorators(_id=None, should_consider=True):
         return Kind._constraint_modifier_localized(
-            job='Decorators',
-            should_consider=should_consider,
-            args=[('id', _id)])
+            job='Decorators', should_consider=should_consider, args=[
+                ('id', _id)
+            ])
 
-    def Classes(_id=None,
-                _in_global=None,
-                _superclass_type=None,
-                should_consider=True):
+    def Classes(_id=None, _superclass_type=None, should_consider=True):
         return Kind._constraint_modifier_localized(
-            job='Classes',
-            should_consider=should_consider,
-            args=[('id', _id), ('in_global', _in_global), ('superclass_type',
-                                                           _superclass_type)])
+            job='Classes', should_consider=should_consider, args=[
+                ('id', _id), ('superclass_type', _superclass_type)
+            ])
 
     def Attributes(_id=None, _class_id=None, should_consider=True):
         return Kind._constraint_modifier_localized(
-            job='Generators',
-            should_consider=should_consider,
-            args=[('id', _id), ('class_id', _class_id)])
+            job='Generators', should_consider=should_consider, args=[
+                ('id', _id), ('class_id', _class_id)
+            ])
 
     def Methods(_id=None, _class_id=None, should_consider=True):
         return Kind._constraint_modifier_localized(
-            job='Methods',
-            should_consider=should_consider,
-            args=[('id', _id), ('class_id', _class_id)])
+            job='Methods', should_consider=should_consider, args=[
+                ('id', _id), ('class_id', _class_id)
+            ])
 
     def Generators(_id=None, should_consider=True):
         return Kind._constraint_modifier_localized(
-            job='Generators',
-            should_consider=should_consider,
-            args=[('id', _id)])
+            job='Generators', should_consider=should_consider, args=[
+                ('id', _id)
+            ])
 
-    def Comprehensions(_of_list=None,
-                       _of_dict=None,
-                       _of_gen=None,
+    def Comprehensions(_of_list=None, _of_dict=None, _of_gen=None,
                        should_consider=True):
         return Kind._constraint_modifier_localized(
-            job='Comprehensions',
-            should_consider=should_consider,
-            args=[('of_list', _of_list), ('of_dict', _of_dict), ('of_gen',
-                                                                 _of_gen)])
+            job='Comprehensions', should_consider=should_consider, args=[
+                ('of_list', _of_list), ('of_dict', _of_dict),
+                ('of_gen', _of_gen)
+            ])
 
-    def Operations(_operation_str=None,
-                   _is_unary=None,
-                   _is_binary=None,
+    def Operations(_operation_str=None, _is_unary=None, _is_binary=None,
                    should_consider=True):
         return Kind._constraint_modifier_localized(
-            job='Operations',
-            should_consider=should_consider,
-            args=[('operation_str', _operation_str), ('is_unary', _is_unary),
-                  ('is_binary', _is_binary)])
+            job='Operations', should_consider=should_consider, args=[
+                ('operation_str', _operation_str), ('is_unary', _is_unary),
+                ('is_binary', _is_binary)
+            ])
 
 
 class Location_Limit(object):
@@ -646,17 +672,19 @@ class Location_Limit(object):
 
     def Line_Numbers(starting_line=None, ending_line=None):
         return Location_Limit._constraint_modifier_localized(
-            job='Line_Numbers',
-            args=[('minimum', starting_line), ('maximum', ending_line)])
+            job='Line_Numbers', args=[
+                ('minimum', starting_line), ('maximum', ending_line)
+            ])
 
     def Column_Numbers(starting_column=None, ending_column=None):
         return Location_Limit._constraint_modifier_localized(
-            job='Column_Numbers',
-            args=[('minimum', starting_column), ('maximum', ending_column)])
+            job='Column_Numbers', args=[
+                ('minimum', starting_column), ('maximum', ending_column)
+            ])
 
 
 class _Validators(object):
-    def Action_Call(node, should_consider):
+    def Action_Call(node, should_consider, _knowledge):
         def basic_validation(node=node):
             return bool(type(node) is ast.Call)
         try:
@@ -665,10 +693,11 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Action_Initialization(node, should_consider):
+    def Action_Initialization(node, should_consider, _knowledge):
         raise NotImplementedError
 
-    def Action_Import(node, _id, _from, _from_id, _as, should_consider):
+    def Action_Import(node, _id, _from, _from_id, _as, should_consider,
+                      _knowledge):
         def basic_validation(node=node):
             return bool(type(node) in {ast.Import, ast.ImportFrom})
 
@@ -702,7 +731,7 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Action_Definition(node, should_consider):
+    def Action_Definition(node, should_consider, _knowledge):
         def basic_validation(node=node):
             return bool(type(node) in {ast.FunctionDef, ast.ClassDef})
         try:
@@ -711,7 +740,7 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Action_Assignment(node, _with_op, should_consider):
+    def Action_Assignment(node, _with_op, should_consider, _knowledge):
         def basic_validation(node=node):
             return bool(type(node) in {ast.Assign, ast.AugAssign})
 
@@ -730,7 +759,7 @@ class _Validators(object):
             return False
 
     def Action_Assertion(node, _with_error_msg, _error_msg_content,
-                         should_consider):
+                         should_consider, _knowledge):
 
         def basic_validation(node=node):
             return bool(type(node) is ast.Assert)
@@ -757,13 +786,16 @@ class _Validators(object):
             return False
 
     def Action_Looping(node, _for, _while, _for_else, _with_break,
-                       _with_non_terminating_test, should_consider):
+                       _with_non_terminating_test,
+                       should_consider, _knowledge):
 
         def regular_looping_validation(node=node):
             return bool(type(node) in {ast.For, ast.While})
 
         def comprehension_looping_validation(node=node):
-            return bool(type(node) in knowledge['comprehension_forms'])
+            return bool(
+                type(node) in _knowledge['comprehension_forms']
+            )
 
         def basic_validation(node=node):
             return bool(regular_looping_validation(node=node) or
@@ -867,7 +899,7 @@ class _Validators(object):
             return False
 
     def Action_Conditional(node, _with_elif, _with_else, _is_ifexp,
-                           should_consider):
+                           should_consider, _knowledge):
         def regular_conditional_validation(node=node):
             return bool(type(node) is ast.If)
 
@@ -876,7 +908,8 @@ class _Validators(object):
 
         def comprehension_conditional_validation(node=node):
             is_in_comprehension_form = bool(
-                type(node) in knowledge['comprehension_forms'])
+                type(node) in _knowledge['comprehension_forms']
+            )
             if is_in_comprehension_form:
                 for generator in node.generators:
                     if len(generator.ifs) != 0:
@@ -959,7 +992,7 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Action_With(node, _as, should_consider):
+    def Action_With(node, _as, should_consider, _knowledge):
         def basic_validation(node=node):
             return bool(type(node) is ast.With)
 
@@ -974,7 +1007,7 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Action_Deletion(node, should_consider):
+    def Action_Deletion(node, should_consider, _knowledge):
         def basic_validation(node=node):
             return bool(type(node) is ast.Delete)
         try:
@@ -983,7 +1016,7 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Action_Indexing(node, should_consider):
+    def Action_Indexing(node, should_consider, _knowledge):
         def basic_validation(node=node):
             return bool(type(node) is ast.Subscript)
         try:
@@ -993,7 +1026,7 @@ class _Validators(object):
             return False
 
     def Action_Trying(node, _with_except_list, _with_except_as_list,
-                      _with_finally, should_consider):
+                      _with_finally, should_consider, _knowledge):
         def basic_validation(node=node):
             return bool(type(node) is ast.Try)
 
@@ -1057,7 +1090,7 @@ class _Validators(object):
             return False
 
     def Action_Raising(node, _error_type, _error_message, _cause,
-                       should_consider):
+                       should_consider, _knowledge):
         def basic_validation(node=node):
             return bool(type(node) is ast.Raise)
 
@@ -1094,7 +1127,8 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Action_Yielding(node, _in_comprehension, _yield_from, should_consider):
+    def Action_Yielding(node, _in_comprehension, _yield_from,
+                        should_consider, _knowledge):
         def regular_yielding_validation(node=node):
             return bool(type(node) is ast.Yield)
 
@@ -1127,7 +1161,7 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Action_Making_Global(node, _id, should_consider):
+    def Action_Making_Global(node, _id, should_consider, _knowledge):
         def basic_validation(node=node):
             return bool(type(node) is ast.Global)
 
@@ -1141,7 +1175,7 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Action_Making_Nonlocal(node, _id, should_consider):
+    def Action_Making_Nonlocal(node, _id, should_consider, _knowledge):
         def basic_validation(node=node):
             return bool(type(node) is ast.Nonlocal)
 
@@ -1155,7 +1189,7 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Action_Passing(node, should_consider):
+    def Action_Passing(node, should_consider, _knowledge):
         def basic_validation(node=node):
             return bool(type(node) is ast.Pass)
         try:
@@ -1164,8 +1198,7 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Action_Returning(node, should_consider):
-
+    def Action_Returning(node, should_consider, _knowledge):
         def regular_returning_validation(node=node):
             return bool(type(node) is ast.Return)
 
@@ -1182,7 +1215,7 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Action_Breaking(node, should_consider):
+    def Action_Breaking(node, should_consider, _knowledge):
         def basic_validation(node=node):
             return bool(type(node) is ast.Break)
         try:
@@ -1191,7 +1224,7 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Action_Continuing(node, should_consider):
+    def Action_Continuing(node, should_consider, _knowledge):
         def basic_validation(node=node):
             return bool(type(node) is ast.Continue)
         try:
@@ -1200,50 +1233,59 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Kind_Variables(node, _id, _is_attribute, should_consider):
+    def Kind_Variables(node, _id, _is_attribute, should_consider, _knowledge):
+        def regular_name_validation(node=node):
+            return bool(type(node) is ast.Name)
+
+        def builtin_type_filtering(node=node):
+            return bool(type(node) not in _knowledge['builtin_types'])
+
+        def function_filtering(node=node):
+            try:
+                return bool(node != node._parent.func)
+            except AttributeError:
+                return True
+
+        def class_base_filtering(node=node):
+            try:
+                return bool(node not in node._parent.bases)
+            except AttributeError:
+                return True
+
         def basic_validation(node=node):
-            pass
+            return bool(regular_name_validation(node=node) and
+                        builtin_type_filtering(node=node) and
+                        function_filtering(node=node))
+
+        def id_validation(_id, node=node):
+            try:
+                return bool(_id == node.id)
+            except AttributeError:
+                return False
+
+        def is_attribute_validation(is_sought, node=node):
+            if is_sought:
+                return bool(type(node._parent) is ast.Attribute)
+            else:
+                return bool(type(node._parent) is not ast.Attribute)
         try:
             partial_validators = set([should_consider, basic_validation()])
-            partial_validators.add(
-                bool(type(node) is ast.Name) or
-                bool(node != node._parent.func))
-            partial_validators.add(
-                bool(
-                    node.id not in list(
-                        map(lambda x: x.__name__, builtin_datatypes))))
             if _id is not None:
-                partial_validators.add(bool(_id) and bool(_id == node.id))
-            if _is_attribute in {False, True}:
-                partial_validators.add(
-                    bool(_is_attribute) and
-                    bool(type(node._parent) is ast.Attribute))
-            if _in_global is not None:
-                if type(node) is ast.Name:
-                    current_node = node
-                    while (type(current_node) not in {
-                            ast.ClassDef, ast.FunctionDef, ast.Lambda
-                    }):
-                        if type(current_node) is ast.Module:
-                            partial_validators.add(bool(_in_global))
-                            break
-                        current_node = current_node._parent
+                partial_validators.add(id_validation(_id=_id))
+            if _is_attribute is not None:
+                partial_validators.add(is_attribute_validation(
+                    is_sought=bool(_is_attribute)))
             return all(partial_validators)
         except AttributeError:
             return False
 
-    def Kind_STD_Types(node, _type, should_consider):
+    def Kind_STD_Types(node, _type, should_consider, _knowledge):
         def basic_validation(node=node):
             if bool(type(node) is ast.Name):
                 return bool(
                     node.id in [
                         builtin_type.__name__
-                        for builtin_type in {
-                                builtin_type
-                                for builtin_kind_set in knowledge[
-                                        'builtin_kinds'].values()
-                                for builtin_type in builtin_kind_set
-                        }
+                        for builtin_type in _knowledge['builtin_types']
                     ]
                 )
             return False
@@ -1262,7 +1304,7 @@ class _Validators(object):
             return False
 
     def Kind_Functions(node, _id, _in_global, _is_lambda, _is_decorator,
-                       should_consider):
+                       should_consider, _knowledge):
         # Remove class stuff
         if not should_consider:
             return False
@@ -1298,7 +1340,7 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Kind_Decorators(node, _id, should_consider):
+    def Kind_Decorators(node, _id, should_consider, _knowledge):
         if not should_consider:
             return False
         try:
@@ -1310,7 +1352,8 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Kind_Classes(node, _id, _in_global, _superclass_type, should_consider):
+    def Kind_Classes(node, _id, _in_global, _superclass_type,
+                     should_consider, _knowledge):
         # if not should_consider:
         #     return False
         # try:
@@ -1347,7 +1390,7 @@ class _Validators(object):
         #     return False
         raise NotImplementedError
 
-    def Kind_Attributes(node, _id, _class_id, should_consider):
+    def Kind_Attributes(node, _id, _class_id, should_consider, _knowledge):
         if not should_consider:
             return False
         try:
@@ -1356,7 +1399,7 @@ class _Validators(object):
             return False
         raise NotImplementedError
 
-    def Kind_Methods(node, _id, _class_id, should_consider):
+    def Kind_Methods(node, _id, _class_id, should_consider, _knowledge):
         if not should_consider:
             return False
         try:
@@ -1365,7 +1408,7 @@ class _Validators(object):
             return False
         raise NotImplementedError
 
-    def Kind_Generators(_id, should_consider):
+    def Kind_Generators(_id, should_consider, _knowledge):
         if not should_consider:
             return False
         try:
@@ -1374,7 +1417,8 @@ class _Validators(object):
             return False
         raise NotImplementedError
 
-    def Kind_Comprehensions(_of_list, _of_dict, _of_gen, should_consider):
+    def Kind_Comprehensions(_of_list, _of_dict, _of_gen,
+                            should_consider, _knowledge):
         if not should_consider:
             return False
         try:
@@ -1384,7 +1428,7 @@ class _Validators(object):
         raise NotImplementedError
 
     def Kind_Operations(_operation_str, _is_unary, _is_binary,
-                        should_consider):
+                        should_consider, _knowledge):
         if not should_consider:
             return False
         try:
@@ -1393,7 +1437,7 @@ class _Validators(object):
             return False
         raise NotImplementedError
 
-    def Location_Limit_Line_Numbers(node, _minimum, _maximum):
+    def Location_Limit_Line_Numbers(node, _minimum, _maximum, _knowledge):
         try:
             partial_validators = set()
             if _minimum is not None:
@@ -1410,7 +1454,7 @@ class _Validators(object):
         except AttributeError:
             return False
 
-    def Location_Limit_Column_Numbers(node, _minimum, _maximum):
+    def Location_Limit_Column_Numbers(node, _minimum, _maximum, _knowledge):
         try:
             partial_validators = set()
             if _minimum is not None:
@@ -1436,6 +1480,10 @@ class Grepper(object):
                 self.__ast = _establish_parent_link(ast.parse(f.read()))
                 self.__source = f
                 self.__constraints_template = _Constraints_template()
+                self.__knowledge_template = _update_knowledge_template(
+                    ast_tree_with_parent_pointers=self.__ast,
+                    knowledge_template=_Knowledge_template()
+                )
                 self.__result_template = namedtuple('_'.join(
                     os.path.basename(source_abs_path).split('.')[:-1]),
                                                     'Line Column')
@@ -1444,6 +1492,9 @@ class Grepper(object):
 
     def get_source(self):
         return self.__source[:]
+
+    def get_knowledge(self):
+        return self.__knowledge_template
 
     def get_constraints(self):
         unfiltered_constraints = {
@@ -1485,29 +1536,35 @@ class Grepper(object):
             for constraint_type in constraints
         }
         validator_partial_predicates = {
-            partial(validator_predicates[constraint_type][job], **{
-                (lambda key: (key if key == 'should_consider' else "_{}".format(key))
-                 )(key): value
-                for key, value in (self.__constraints_template[constraint_type]
-                                   [job].items())
-            })
+            partial(validator_predicates[constraint_type][job],
+                    **{(lambda key: (
+                        key if key == 'should_consider' else
+                        "_{}".format(key)
+                    ))(key): value
+                       for key, value in (
+                               self.__constraints_template[
+                                   constraint_type][job].items()
+                       )})
             for constraint_type in validator_predicates
             for job in validator_predicates[constraint_type]
         }
         return validator_partial_predicates
 
     def add_constraint(self, constraint):
-        assert bool(constraint.__name__ ==
-                    "constraint_template_modifier"), "Invalid constraint"
+        assert bool(constraint.__name__ == "constraint_template_modifier"), (
+            "Invalid constraint"
+        )
         constraint(self.__constraints_template)
 
     def run(self):
         validator_predicates = self._validator_predicate_extracter()
         for node in ast.walk(self.__ast):
             if all([
-                    validator_predicate(node=node)
-                    for validator_predicate in validator_predicates
+                    validator_predicate(
+                        node=node, _knowledge=self.get_knowledge()
+                    ) for validator_predicate in validator_predicates
             ]):
+                print(self.get_knowledge())
                 yield self.__result_template(node.lineno, node.col_offset)
 
     def get_all_results(self):
