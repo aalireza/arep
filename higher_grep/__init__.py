@@ -1149,8 +1149,17 @@ class _Validators(object):
             return False
 
     def Action_Returning(node, should_consider):
+
+        def regular_returning_validation(node=node):
+            return bool(type(node) is ast.Return)
+
+        def in_lambda_validation(node=node):
+            return False
+            raise NotImplemented
+
         def basic_validation(node=node):
-            pass
+            return bool(regular_returning_validation(node=node) or
+                        in_lambda_validation(node=node))
         try:
             partial_validators = set([should_consider, basic_validation()])
             return all(partial_validators)
