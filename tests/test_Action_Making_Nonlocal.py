@@ -6,10 +6,13 @@ import os
 results_template = namedtuple('Making_Nonlocal', 'Line Column')
 
 
-results = {
-    results_template(x, y)
-    for x, y in {(3, 8), (11, 8), (14, 12)}
-}
+def results_formatter(results):
+    return {results_template(x, y) for x, y in results}
+
+
+all_results = results_formatter({
+    (3, 8), (11, 8), (14, 12)
+})
 
 
 @pytest.fixture
@@ -21,14 +24,14 @@ def grepper():
 
 def test_Making_Nonlocal(grepper):
     grepper.add_constraint(hg.Action.Making_Nonlocal())
-    assert results == set(grepper.get_all_results())
+    assert set(grepper.get_all_results()) == all_results
 
 
 @pytest.mark.parametrize(('_id', 'result'), [
-    ('x', results - {results_template(14, 12)}),
-    ('y', {results_template(14, 12)}),
+    ('x', set(all_results - {results_template(14, 12)})),
+    ('y', {(14, 12)}),
     ('z', set([]))
 ])
 def test_id(grepper, _id, result):
     grepper.add_constraint(hg.Action.Making_Nonlocal(_id=_id))
-    assert result == set(grepper.get_all_results())
+    assert set(grepper.get_all_results()) == results_formatter(result)
