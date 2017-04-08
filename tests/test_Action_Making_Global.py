@@ -6,10 +6,13 @@ import os
 results_template = namedtuple('Making_Global', 'Line Column')
 
 
-results = {
-    results_template(x, y)
-    for x, y in {(3, 0), (6, 4)}
-}
+def results_formatter(results):
+    return {results_template(x, y) for x, y in results}
+
+
+all_results = results_formatter({
+    (3, 0), (6, 4)
+})
 
 
 @pytest.fixture
@@ -20,13 +23,13 @@ def grepper():
 
 def test_Making_Global(grepper):
     grepper.add_constraint(hg.Action.Making_Global())
-    assert results == set(grepper.get_all_results())
+    assert all_results == set(grepper.get_all_results())
 
 
 @pytest.mark.parametrize(('_id', 'result'), [
-    ('x', results),
+    ('x', all_results),
     ('y', set([]))
 ])
 def test_id(grepper, _id, result):
     grepper.add_constraint(hg.Action.Making_Global(_id=_id))
-    assert result == set(grepper.get_all_results())
+    assert set(grepper.get_all_results()) == results_formatter(result)
