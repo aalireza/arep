@@ -7,7 +7,7 @@ import os
 results_formatter = partial(results_formatter, name=os.path.basename(__file__))
 
 results_regular = results_formatter({
-    (4, 0), (7, 0), (22, 0), (6, 0)
+    (4, 0), (7, 0), (22, 0), (6, 0), (23, 6)
 })
 
 results_temp = results_formatter({
@@ -34,16 +34,18 @@ def grepper():
     return engine
 
 
-# def test_Variables(grepper):
-#     grepper.add_constraint(hg.Kind.Variables())
-#     assert set(grepper.get_all_results()) == all_results
+def test_Variables(grepper):
+    grepper.add_constraint(hg.Kind.Variables())
+    assert set(grepper.get_all_results()) == all_results
 
 
-# @pytest.mark.parametrize(('_type', 'result'), [
-#     (str, {(7, 8), (9, 18)}),
-#     (int, {(1, 6)}),
-#     (dict, set([])),
-# ])
-# def test_type(grepper, _type, result):
-#     grepper.add_constraint(hg.Kind.STD_Types(_type=_type))
-#     assert set(grepper.get_all_results()) == results_formatter(result)
+@pytest.mark.parametrize(('_id', 'result'), [
+    ('x', {(1, 4), (2, 10), (6, 19), (6, 22), (10, 6), (11, 15), (11, 23),
+           (7, 19), (7, 16)}),
+    ('y', {(4, 0), (10, 9), (11, 17), (11, 21)}),
+    ('a', {(22, 0), (23, 6), (23, 22)})
+])
+def test_id(grepper, _id, result):
+    grepper.add_constraint(hg.Kind.Variables(_id=_id))
+    assert set(grepper.get_all_results()) == results_formatter(result)
+

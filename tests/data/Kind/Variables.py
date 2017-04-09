@@ -3,7 +3,7 @@ for x in range(10):
 
 y = 10
 
-f_not_var = lambda x: x ** 4
+f_var_too = lambda x: x ** 4
 f_var = (lambda x: x ** 4)(2)
 
 

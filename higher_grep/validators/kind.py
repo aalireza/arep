@@ -4,59 +4,55 @@ import ast
 class Variables(object):
 
     def regular(node):
+        # Add limitation
         return bool(type(node) is ast.Name)
 
-    def argument(is_sought, node):
-        if is_sought is None:
-            return True
-        elif is_sought:
-            return bool(type(node) is ast.arg)
-        else:
-            return bool(type(node) is not ast.arg)
+    def argument(node):
+        return bool(type(node) is ast.arg)
+
+    def attribute(node):
+        return bool(type(node) is ast.Attribute)
 
     def builtin_filtering(node, knowledge):
-        return bool(type(node) not in knowledge['builtins']['all'])
+        if Variables.argument(node=node):
+            return bool(node.arg not in knowledge['builtins']['all'])
+        try:
+            return bool(node.id not in knowledge['builtins']['all'])
+        except AttributeError:
+            return True
 
     def function_filtering(node):
+        parent_node = node._parent
         try:
-            return (bool(node != node._parent.func))
+            return (bool(node != parent_node.func))
         except AttributeError:
-            return False
+            return True
 
     def class_base_filtering(node):
         try:
             return (bool(node not in node._parent.bases))
         except AttributeError:
-            return False
-
-    # def initialization_filtering(node=node):
-    #     return False
-
-    def attribute(is_sought, node):
-        if is_sought is None:
             return True
-        if is_sought:
-            return (bool(type(node._parent) is ast.Attribute) and
-                    bool(type(node._parent._parent) is not ast.Call))
-        return (bool(type(node._parent) is not ast.Attribute) or
-                bool(type(node._parent._parent) is ast.Call))
+
+    def class_method_filtering(node, knowledge):
+        try:
+            return not bool(node in knowledge['Function'])
+        except AttributeError:
+            return True
 
     def basic(node, knowledge):
         return bool(
-            any([Variables.builtin_filtering(node=node),
-                 Variables.attribute(is_sought=None, node=node),
-                 Variables.argument(is_sought=None, node=node)]) and
-            (
-                # (initialization_filtering(node=node) and
-                Variables.function_filtering(node=node) and
-                Variables.class_base_filtering(node=node)
+            any([Variables.regular(node=node),
+                 Variables.argument(node=node),
+                 Variables.attribute(node=node)]) and
+            Variables.builtin_filtering(node=node, knowledge=knowledge) and
+            Variables.function_filtering(node=node) and
+            Variables.class_base_filtering(node=node) and
+            Variables.class_method_filtering(node=node, knowledge=knowledge)
             )
-        )
 
     def _id_(_id, node):
-        if Variables.argument(
-                is_sought=True, node=node
-        ):
+        if Variables.argument(node=node):
             return bool(_id == node.arg)
         try:
             return bool(_id == node.id)
