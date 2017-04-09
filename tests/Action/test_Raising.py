@@ -1,17 +1,10 @@
+from ..utils import results_formatter
+from functools import partial
 import higher_grep as hg
 import pytest
 import os
 
-
-def results_formatter(coordinates, name="Raising.py"):
-    results = set([])
-    for result in coordinates:
-        if type(result) is hg._Result:
-            results.add(result)
-        else:
-            results.add(hg._Result(name, result[0], result[1]))
-    return results
-
+results_formatter = partial(results_formatter, name=os.path.basename(__file__))
 
 all_results = results_formatter({
     (3, 8), (5, 8), (10, 4), (12, 0)

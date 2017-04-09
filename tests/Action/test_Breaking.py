@@ -1,17 +1,10 @@
+from ..utils import results_formatter
+from functools import partial
 import higher_grep as hg
 import pytest
 import os
 
-
-def results_formatter(coordinates, name="Breaking.py"):
-    results = set([])
-    for result in coordinates:
-        if type(result) is hg._Result:
-            results.add(result)
-        else:
-            results.add(hg._Result(name, result[0], result[1]))
-    return results
-
+results_formatter = partial(results_formatter, name=os.path.basename(__file__))
 
 all_results = results_formatter({
     (2, 4), (6, 8), (15, 12)

@@ -1,17 +1,10 @@
+from ..utils import results_formatter
+from functools import partial
 import higher_grep as hg
 import pytest
 import os
 
-
-def results_formatter(coordinates, name="Assertion.py"):
-    results = set([])
-    for result in coordinates:
-        if type(result) is hg._Result:
-            results.add(result)
-        else:
-            results.add(hg._Result(name, result[0], result[1]))
-    return results
-
+results_formatter = partial(results_formatter, name=os.path.basename(__file__))
 
 results_with_msg = results_formatter({(2, 0), (5, 4)})
 all_results = results_formatter({(1, 0), (2, 0), (5, 4)})
