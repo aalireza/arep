@@ -8,19 +8,6 @@ import sys
 if sys.version_info > (3, 0):
     long = int
 
-class Validators(object):
-    class Call(object):
-        def basic(node):
-            return bool(type(node) is ast.Call)
-
-        def __new__(self, node, consideration, knowledge):
-            try:
-                validators = set([consideration, self.basic(node=node)])
-                return all(validators)
-            except AttributeError:
-                return False
-
-
 
 class TemplateMaker(type):
 
@@ -165,8 +152,6 @@ class TemplateMaker(type):
 class Action(object):
     __Template_Form = {
         'considerable': True,
-        'Call': dict(),
-        'Initialization': dict(),
         'Import': {
             'name': None,
             'From': {
@@ -176,7 +161,6 @@ class Action(object):
                 'name': None,
             }
         },
-        'Definition': dict(),
         'Assignment': {
             'Operational_Augmentation': {
                 'operation': None
@@ -199,18 +183,16 @@ class Action(object):
                 'name': None
             }
         },
-        'Deletion': dict(),
-        'Indexing': dict(),
         'Trying': {
             'Except': {
-                'type': None,
+                'type_': None,
                 'as_': None
             },
-            'Finally': dict(),
+            'finaly_': None,
         },
         'Raising': {
             'Error': {
-                'type': None,
+                'type_': None,
                 'message': None
             },
             'Cause': {
@@ -218,16 +200,19 @@ class Action(object):
             },
         },
         'Yielding': {
-            'From': dict(),
-            'In_GeneratorExp': dict(),
+            'from_': None,
+            'in_expression': None,
         },
         **{
-            specs: {'name': None}
-            for specs in {
-                    'Making_Global', 'Making_Nonlocal', 'Passing',
-                    'Returning', 'Breaking', 'Continuing'}
+            spec: {'name': None}
+            for spec in {'Making_Global', 'Making_Nonlocal'}
         },
-
+        **{spec: dict()
+           for spec in {
+                   'Call', 'Initialization', 'Definition', 'Deletion',
+                   'Indexing', 'Passing', 'Returning', 'Breaking', 'Continuing'
+           }
+        }
     }
 
     def __new__(self):
@@ -254,9 +239,7 @@ class Kind(object):
         },
         'Classes': {
             'name': None,
-            'Bases': {
-                'list_': None,
-            }
+            'bases_list': None,
         },
         'Attributes': {
             'name': None,
@@ -344,9 +327,6 @@ class Constraint(object):
 
     def __str__(self):
         return "Constraint"
-        # return "{}=({})".format("Constraints", ", ".join([
-        #     x.__name__ for x in {self.Action, self.Kind, self.Limit}
-        # ]))
 
 
 def Knowledge_template():

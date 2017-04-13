@@ -1,19 +1,26 @@
+from higher_grep.Validators import ValidationForm, ValidatorForm
 import ast
 
 
 class Variables(object):
 
-    def regular(node):
+    def _regular(node):
         # Add limitation
         return bool(type(node) is ast.Name)
 
-    def argument(node):
-        return bool(type(node) is ast.arg)
+    def is_argument(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(type(node) is ast.arg)
+        )
 
-    def attribute(node):
-        return bool(type(node) is ast.Attribute)
+    def is_attribute(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(type(node) is ast.Attribute)
+        )
 
-    def builtin_filtering(node, knowledge):
+    def _builtin_filtering(node, knowledge):
         if Variables.argument(node=node):
             return bool(node.arg not in knowledge['builtins']['all'])
         try:
@@ -21,138 +28,165 @@ class Variables(object):
         except AttributeError:
             return True
 
-    def function_filtering(node):
+    def _function_filtering(node):
         parent_node = node._parent
         try:
             return (bool(node != parent_node.func))
         except AttributeError:
             return True
 
-    def class_base_filtering(node):
+    def _class_base_filtering(node):
         try:
             return (bool(node not in node._parent.bases))
         except AttributeError:
             return True
 
-    def class_method_filtering(node, knowledge):
+    def _class_method_filtering(node, knowledge):
         try:
             return not bool(node in knowledge['Function'])
         except AttributeError:
             return True
 
-    def basic(node, knowledge):
+    def basic(node, consideration, knowledge):
         return bool(
-            any([Variables.regular(node=node),
-                 Variables.argument(node=node),
-                 Variables.attribute(node=node)]) and
-            Variables.builtin_filtering(node=node, knowledge=knowledge) and
-            Variables.function_filtering(node=node) and
-            Variables.class_base_filtering(node=node) and
-            Variables.class_method_filtering(node=node, knowledge=knowledge)
+            any([Variables._regular(node),
+                 Variables.is_argument(node, consideration),
+                 Variables.is_attribute(node, consideration)]) and
+            Variables._builtin_filtering(node, knowledge) and
+            Variables._function_filtering(node) and
+            Variables._class_base_filtering(node) and
+            Variables._class_method_filtering(node, knowledge)
             )
 
-    def _id_(_id, node):
-        if Variables.argument(node=node):
-            return bool(_id == node.arg)
+    def name(name, node):
+        if Variables.is_argument(node, consideration=True):
+            return bool(name == node.arg)
         try:
-            return bool(_id == node.id)
+            return bool(name == node.id)
         except AttributeError:
             return False
 
-    def __new__(self, node, _id, _is_attribute, _is_argument,
-                should_consider, _knowledge):
-        try:
-            partial_validators = set([
-                should_consider, self.basic(node=node, knowledge=_knowledge)
-            ])
-            if _id is not None:
-                partial_validators.add(self._id_(_id=_id, node=node))
-            if _is_attribute is not None:
-                partial_validators.add(
-                    Variables.attribute(
-                        is_sought=bool(_is_attribute), node=node
-                    )
-                )
-            if _is_argument is not None:
-                partial_validators.add(
-                    Variables.argument(is_sought=bool(_is_argument), node=node)
-                )
-            return all(partial_validators)
-        except AttributeError:
-            return False
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
 
 class STD_Types(object):
-    def basic(node, knowledge):
-        if bool(type(node) is ast.Name):
-            return bool(
-                node.id in [
-                    builtin_type.__name__
-                    for builtin_type in knowledge['builtins']['types']
-                ]
+    def basic(node, consideration, knowledge):
+        return ValidationForm(
+            consideration,
+            condition=(
+                False
+                if bool(type(node) is not ast.Name)
+                else (bool([
+                        node.id in [
+                            builtin_type.__name__
+                            for builtin_type in knowledge['builtins']['types']
+                        ]
+                ]))
             )
-        return False
+        )
 
-    def type_name(_type, node):
-        if _type:
-            return bool(node.id == _type.__name__)
-        return False
+    def type_(type_, node):
+        return ValidationForm(
+            type_,
+            condition=bool(node.id == type_.__name__)
+        )
 
-    def __new__(self, node, _type, should_consider, _knowledge):
-        try:
-            partial_validators = set([
-                should_consider, self.basic(node=node, knowledge=_knowledge)
-            ])
-            if _type is not None:
-                partial_validators.add(
-                    self.type_name(_type=_type, node=node)
-                )
-            return all(partial_validators)
-        except AttributeError:
-            return False
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
 
 class Functions(object):
-    def __new__(self, node, _id, _is_lambda, _is_decorator,
-                should_consider, _knowledge):
+    def basic(node, consideration):
         raise NotImplementedError
 
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
-class Decorators(object):
-    def __new__(self, node, _id, should_consider, _knowledge):
-        raise NotImplementedError
+    class Lambda(object):
+        def basic(node, consideration):
+            raise NotImplementedError
+
+        def immediately_called(node, consideration):
+            raise NotImplementedError
+
+        def __new__(self, **kwargs):
+            return ValidatorForm(self, **kwargs)
+
+    class Decorator(object):
+        def basic(node, consideration):
+            raise NotImplementedError
+
+        def name(name, node):
+            raise NotImplementedError
+
+        def __new__(self, **kwargs):
+            return ValidatorForm(self, **kwargs)
 
 
 class Classes(object):
-    def __new__(self, node, _id, _superclass_type,
-                should_consider, _knowledge):
+    def basic(node, consideration):
         raise NotImplementedError
 
-
-class Attributes(object):
-    def __new__(self, node, _id, _class_id,
-                should_consider, _knowledge):
+    def name(name, consideration):
         raise NotImplementedError
 
-
-class Methods(object):
-    def __new__(self, node, _id, _class_id,
-                should_consider, _knowledge):
+    def bases_list(bases_list, node):
         raise NotImplementedError
+
+    def attributes_list(attributes_list, node):
+        raise NotImplementedError
+
+    def methods_list(methods_list, node):
+        raise NotImplementedError
+
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
 
 class Generators(object):
-    def __new__(self, node, _id, should_consider, _knowledge):
+    def basic(node, consideration):
         raise NotImplementedError
+
+    def name(name, node):
+        raise NotImplementedError
+
+    def is_expression(is_expression, node):
+        raise NotImplementedError
+
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
 
 class Comprehensions(object):
-    def __new__(self, node, _of_list, _of_dict, _of_gen,
-                should_consider, _knowledge):
+    def basic(node, consideration):
         raise NotImplementedError
+
+    def of_list(of_list, node):
+        raise NotImplementedError
+
+    def of_set(of_set, node):
+        raise NotImplementedError
+
+    def of_dict(of_dict, node):
+        raise NotImplementedError
+
+    def of_gen(of_gen, node):
+        raise NotImplementedError
+
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
 
 class Operations(object):
-    def __new__(self, node, _operation_str, _is_unary, _is_binary,
-                should_consider, _knowledge):
+    def basic(node, consideration):
+        raise NotImplementedError
+
+    def stringified_operation(stringified_operation, node):
+        raise NotImplementedError
+
+    def is_unary(is_unary, consideration):
+        raise NotImplementedError
+
+    def is_binary(is_binary, consideration):
         raise NotImplementedError

@@ -1,199 +1,175 @@
 from higher_grep.core import comparison_evaluator
-from inspect import getfullargspec as spec
+from higher_grep.Validators import ValidationForm, ValidatorForm
 import ast
 
 
-def ValidatorForm(**kwargs):
-    def func_call_from_kwargs(f, keyword_dict):
-        return f(**{
-            key: keyword_dict[key]
-            for key in keyword_dict
-            if key in spec(f).args
-        })
-
-    cls = kwargs['cls']
-    try:
-        validators = set([
-            kwargs['consideration'], func_call_from_kwargs(cls.basic, kwargs)
-        ])
-        for kwarg in kwargs:
-            if kwarg not in {
-                    *list(spec(cls.basic).args),
-                    'consideration', 'knowledge'
-            }:
-                validators.add(func_call_from_kwargs(
-                    getattr(cls, kwarg), kwargs
-                ))
-        return all(validators)
-    except AttributeError:
-        return False
-
-
 class Call(object):
-    def basic(node):
-        return bool(type(node) is ast.Call)
+    def basic(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(type(node) is ast.Call),
+        )
 
-    def __new__(self, node, consideration, knowledge):
-        try:
-            validators = set([consideration, self.basic(node=node)])
-            return all(validators)
-        except AttributeError:
-            return False
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
 
 class Initialization(object):
     def basic(node):
         pass
 
-    def __new__(self, node, consideration, knowledge):
-        pass
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
 
 class Import(object):
+    def basic(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(type(node) in {ast.Import, ast.ImportFrom})
+        )
+
+    def name(node, name, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(name in {sub.name for sub in node.names})
+        )
+
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
     class From(object):
-        def basic(self, node):
-            return bool(type(node) is ast.ImportFrom)
+        def basic(node, consideration):
+            return ValidationForm(
+                consideration,
+                condition=bool(type(node) is ast.ImportFrom)
+            )
 
-        def name(self, name, node):
-            return bool(node.id == name)
+        def name(node, name, consideration):
+            return ValidationForm(
+                consideration,
+                condition=bool(node.id == name)
+            )
 
-        def __new__(self, node, name, consideration, knowledge):
-            try:
-                validators = set([consideration, self.basic(node)])
-                if name is not None:
-                    validators.add(self.name(node, name))
-                return all(validators)
-            except AttributeError:
-                return False
+        def __new__(self, **kwargs):
+            return ValidatorForm(self, **kwargs)
 
     class As(object):
-        def basic(self, node, name):
-            return bool(name in [sub.asname for sub in node.names])
+        def basic(node, consideration):
+            return ValidationForm(
+                consideration,
+                condition=(bool(len(node.names) != 0) and
+                           Import.basic(node, True))
+            )
 
-        def __new__(self, node, name, consideration, knowledge):
-            try:
-                validators = set([consideration, self.basic(node, name)])
-                return all(validators)
-            except AttributeError:
-                return False
+        def name(node, name, consideration):
+            return ValidationForm(
+                consideration,
+                condition=bool(name in [sub.asname for sub in node.names])
+            )
 
-    def basic(node):
-        return bool(type(node) in {ast.Import, ast.ImportFrom})
-
-    def name(name, node):
-        return bool(name in {sub.name for sub in node.names})
-
-    def __new__(self, node, name, consideration, knowledge):
-        try:
-            partial_validators = set([consideration, self.basic(node)])
-            if name is not None:
-                partial_validators.add(self.name(name, node))
-            return all(partial_validators)
-        except AttributeError:
-            return False
+        def __new__(self, **kwargs):
+            return ValidatorForm(self, **kwargs)
 
 
 class Definition(object):
-    def basic(node):
-        return bool(type(node) in {ast.FunctionDef, ast.ClassDef})
+    def basic(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(type(node) in {ast.FunctionDef, ast.ClassDef})
+        )
 
-    def __new__(self, node, consideration, knowledge):
-        try:
-            validators = set([consideration, self.basic(node)])
-            return all(validators)
-        except AttributeError:
-            return False
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
 
 class Assignment(object):
+    def basic(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(type(node) in {ast.Assign, ast.AugAssign})
+        )
+
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
+
     class Operational_Augmentation(object):
-        def basic(node):
-            return bool(type(node) is ast.AugAssign)
+        def basic(node, consideration):
+            return ValidationForm(
+                consideration,
+                condition=bool(type(node) is ast.AugAssign)
+            )
 
-        def __new__(self, node, operation, consideration, knowledge):
-            try:
-                validators = set([consideration, self.basic(node)])
-                if operation is not None:
-                    validators.add(self.operation(operation, node, knowledge))
-                return all(validators)
-            except AttributeError:
-                return False
+        def operation(node):
+            pass
 
-    def basic(node):
-        return bool(type(node) in {ast.Assign, ast.AugAssign})
-
-    def __new__(self, node, consideration, knowledge):
-        try:
-            validators = set([consideration, self.basic(node)])
-            return all(validators)
-        except AttributeError:
-            return False
+        def __new__(self, **kwargs):
+            return ValidatorForm(self, **kwargs)
 
 
 class Assertion(object):
-    def basic(node):
-        return bool(type(node) is ast.Assert)
+    def basic(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(type(node) is ast.Assert)
+        )
 
-    def with_error_msg(is_sought, node):
-        if is_sought:
-            return bool(node.msg is not None)
-        return bool(node.msg is None)
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
-    def error_msg_content(_error_msg_content, node):
-        return bool(_error_msg_content == node.msg)
+    class Error(object):
+        def basic(node, consideration):
+            return ValidationForm(
+                consideration,
+                condition=(bool(node.msg is not None) and
+                           Assertion.basic(node, True))
+            )
 
-    def __new__(self, node, _with_error_msg, _error_msg_content,
-                consideration, _knowledge):
-        try:
-            partial_validators = set([consideration, self.basic(node=node)])
-            if _with_error_msg is not None:
-                partial_validators.add(
-                    self.with_error_msg(
-                        is_sought=bool(_with_error_msg), node=node
-                    )
-                )
-            if _error_msg_content is not None:
-                partial_validators.add(
-                    self.error_msg_content(
-                        _error_msg_content=_error_msg_content,
-                        node=node
-                    )
-                )
-            return all(partial_validators)
-        except AttributeError:
-            return False
+        def content(node, content, consideration):
+            return ValidationForm(
+                consideration,
+                condition=bool(content == node.msg)
+            )
+
+        def __new__(self, **kwargs):
+            return ValidatorForm(self, **kwargs)
 
 
 class Looping(object):
-
-    def regular(node):
+    def _regular(node):
         return bool(type(node) in {ast.For, ast.While})
 
-    def comprehension(node, knowledge):
+    def _comprehension(node, knowledge):
         return bool(type(node) in knowledge['comprehension_forms'])
 
-    def basic(node, knowledge):
-        return bool(
-            Looping.regular(node=node) or
-            Looping.comprehension(node=node, knowledge=knowledge)
+    def basic(node, knowledge, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(
+                Looping._regular(node=node) or
+                Looping._comprehension(node=node, knowledge=knowledge)
+            )
         )
 
-    def _for_(is_sought, node):
-        if is_sought:
-            return bool(type(node) is not ast.While)
-        return bool(type(node) is ast.While)
+    def for_(for_, node):
+        return ValidationForm(
+            for_,
+            condition=bool(type(node) is ast.For)
+        )
 
-    def _while_(is_sought, node):
-        if is_sought:
-            return bool(type(node) is ast.While)
-        return bool(type(node) is not ast.While)
+    def while_(while_, node):
+        return ValidationForm(
+            while_,
+            condition=bool(type(node) is ast.While)
+        )
 
-    def for_else(is_sought, node, knowledge):
-        if is_sought:
+    def for_else(for_else, node, knowledge):
+        if for_else is None:
+            return True
+        elif for_else:
             if (
-                    Looping.regular(node=node) and
-                    not Looping.comprehension(node=node, knowledge=knowledge)
+                    Looping._regular(node=node) and
+                    not Looping._comprehension(node=node, knowledge=knowledge)
             ):
                 return bool(len(node.orelse) != 0)
         else:
@@ -202,11 +178,11 @@ class Looping(object):
             except AttributeError:
                 return True
 
-    def with_break(is_sought, node):
+    def with_break(with_break, node):
         break_presence = False
-        if Looping.regular(node=node):
+        if Looping._regular(node=node):
             non_looping_body = filter(
-                lambda body_element: not Looping.regular(node=body_element),
+                lambda body_element: not Looping._regular(node=body_element),
                 node.body
             )
             for node in non_looping_body:
@@ -216,9 +192,13 @@ class Looping(object):
                         break
                 if break_presence:
                     break
-        return bool(is_sought == break_presence)
+        return ValidationForm(
+            with_break,
+            bool(with_break == break_presence)
+        )
 
-    def with_non_terminating_test(is_sought, node):
+    def with_simple_non_terminating_test(
+            with_simple_non_terminating_test, node):
         def constant_test():
             partial_testers = {
                 'is_boolean': bool(type(node.test) is ast.NameConstant)
@@ -246,58 +226,24 @@ class Looping(object):
         if hasattr(node, "test"):
             constant_infinite = constant_test()
             comparison_infinite = comparison_test()
-            if is_sought:
-                return bool(constant_infinite or comparison_infinite)
-            return (not bool(constant_infinite or comparison_infinite))
-        return not is_sought
+            return ValidationForm(
+                with_simple_non_terminating_test,
+                condition=bool(constant_infinite or comparison_infinite)
+            )
+        return not with_simple_non_terminating_test
 
-    def __new__(self, node, _for, _while, _for_else, _with_break,
-                _with_non_terminating_test,
-                consideration, _knowledge):
-        try:
-            partial_validators = set([
-                consideration, self.basic(node=node, knowledge=_knowledge)
-            ])
-            if _for is not None:
-                partial_validators.add(
-                    self._for_(is_sought=bool(_for), node=node)
-                )
-            if _while is not None:
-                partial_validators.add(
-                    self._while_(is_sought=bool(_while), node=node)
-                )
-            if _for_else is not None:
-                partial_validators.add(
-                    self.for_else(
-                        is_sought=bool(_for_else), node=node,
-                        knowledge=_knowledge
-                    )
-                )
-            if _with_break is not None:
-                partial_validators.add(
-                    self.with_break(
-                        is_sought=bool(_with_break), node=node
-                    )
-                )
-            if _with_non_terminating_test is not None:
-                partial_validators.add(
-                    self.with_non_terminating_test(
-                        is_sought=bool(_with_non_terminating_test), node=node
-                    )
-                )
-            return all(partial_validators)
-        except AttributeError:
-            return False
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
 
 class Conditional(object):
-    def regular(node):
+    def _regular(node):
         return bool(type(node) is ast.If)
 
-    def expression(node):
+    def _expression(node):
         return bool(type(node) is ast.IfExp)
 
-    def comprehension(node, knowledge):
+    def _comprehension(node, knowledge):
         is_in_comprehension_form = bool(
             type(node) in knowledge['comprehension_forms']
         )
@@ -308,44 +254,47 @@ class Conditional(object):
         return False
 
     def parent_child_both_ifs(node):
-        is_if_itself = Conditional.regular(
-            node=node)
-        parent_is_if = Conditional.regular(
-            node=node._parent)
+        is_if_itself = Conditional._regular(node=node)
+        parent_is_if = Conditional._regular(node=node._parent)
         return (is_if_itself and parent_is_if)
 
-    def basic(node, knowledge):
-        return (
-            (Conditional.regular(node=node) and
-                not Conditional.parent_child_both_ifs(node=node)) or
-            Conditional.expression(node=node) or
-            Conditional.comprehension(node=node, knowledge=knowledge)
+    def basic(node, knowledge, consideration):
+        return ValidationForm(
+            consideration,
+            condition=(
+                (Conditional._regular(node=node) and
+                 not Conditional._parent_child_both_ifs(node=node)) or
+                Conditional._expression(node=node) or
+                Conditional._comprehension(node=node, knowledge=knowledge)
+            )
         )
 
-    def with_elif(is_sought, node, knowledge):
-        if Conditional.regular(node=node):
+    def elif_(elif_, node, knowledge):
+        if elif_ is None:
+            return True
+        if Conditional._regular(node=node):
             if type(node.orelse) is list:
                 if len(node.orelse) > 0:
-                    if is_sought:
-                        return (bool(Conditional.regular(node=node.orelse[0])))
-                    else:
-                        return (not bool(
-                            Conditional.regular(node=node.orelse[0])
-                        ))
+                    return ValidationForm(
+                        elif_,
+                        condition=bool(Conditional._regular(node.orelse[0]))
+                    )
                 else:
-                    return (not is_sought)
+                    return (not elif_)
         if (
                 Conditional.comprehension(node=node, knowledge=knowledge) or
                 Conditional.expression(node=node)
         ):
-            return (not is_sought)
+            return (not elif_)
         return False
 
-    def with_else(is_sought, node, knowledge):
-        if Conditional.regular(node=node):
+    def else_(else_, node, knowledge):
+        if else_ is None:
+            return True
+        if Conditional._regular(node=node):
             current_node = node
             last_else_test_is_if = False
-            while Conditional.regular(node=current_node):
+            while Conditional._regular(node=current_node):
                 if type(current_node.orelse) is list:
                     if len(current_node.orelse) == 0:
                         last_else_test_is_if = True
@@ -354,333 +303,301 @@ class Conditional(object):
                         current_node = current_node.orelse[0]
                 else:
                     current_node = current_node.orelse
-            return bool(is_sought is not last_else_test_is_if)
+            return bool(else_ is not last_else_test_is_if)
         elif Conditional.expression(node=node):
-            if is_sought:
+            if else_:
                 return bool(node.orelse is not None)
             return bool(node.orelse is None)
         elif Conditional.comprehension(
                 node=node, knowledge=knowledge):
-            return (not is_sought)
+            return (not else_)
         return False
 
-    def ifexp(is_sought, node):
-        return bool(is_sought is Conditional.expression(node=node))
+    def ifexp(ifexp, node):
+        return ValidationForm(
+            ifexp,
+            condition=Conditional._expression(node)
+        )
 
-    def __new__(self, node, _with_elif, _with_else, _is_ifexp,
-                consideration, _knowledge):
-        try:
-            partial_validators = set([
-                consideration, self.basic(node=node, knowledge=_knowledge)
-            ])
-            if _with_elif is not None:
-                partial_validators.add(
-                    self.with_elif(is_sought=bool(_with_elif),
-                                   node=node, knowledge=_knowledge)
-                )
-            if _with_else is not None:
-                partial_validators.add(
-                    self.with_else(is_sought=bool(_with_else),
-                                   node=node, knowledge=_knowledge)
-                )
-            if _is_ifexp is not None:
-                partial_validators.add(
-                    self.ifexp(is_sought=bool(_is_ifexp), node=node)
-                )
-            return all(partial_validators)
-        except AttributeError:
-            return False
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
 
 class With(object):
-    def basic(node):
-        return bool(type(node) is ast.With)
+    def basic(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(type(node) is ast.With)
+        )
 
-    def _as_(_as, node):
-        return any([bool(_as == with_item.optional_vars.id)
-                    for with_item in node.items])
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
-    def __new__(self, node, _as, consideration, _knowledge):
-        try:
-            partial_validators = set([consideration, self.basic(node=node)])
-            if _as is not None:
-                partial_validators.add(self._as_(_as=_as, node=node))
-            return all(partial_validators)
-        except AttributeError:
-            return False
+    class As(object):
+        def basic(node, consideration):
+            return ValidationForm(
+                consideration,
+                condition=(bool(len(node.items) != 0) and
+                           With.basic(node, True))
+            )
+
+        def name(node, name, consideration):
+            return ValidationForm(
+                consideration,
+                condition=any([
+                    bool(name == with_item.optional_vars.id)
+                    for with_item in node.items
+                ])
+            )
+
+        def __new__(self, **kwargs):
+            return ValidatorForm(self, **kwargs)
 
 
 class Deletion(object):
-    def basic(node):
-        return bool(type(node) is ast.Delete)
+    def basic(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(type(node) is ast.Delete)
+        )
 
-    def __new__(self, node, consideration, _knowledge):
-        try:
-            partial_validators = set([consideration, self.basic(node=node)])
-            return all(partial_validators)
-        except AttributeError:
-            return False
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
 
 class Indexing(object):
-    def basic(node):
-        return bool(type(node) is ast.Subscript)
+    def basic(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(type(node) is ast.Subscript)
+        )
 
-    def __new__(self, node, consideration, _knowledge):
-        try:
-            partial_validators = set([consideration, self.basic(node=node)])
-            return all(partial_validators)
-        except AttributeError:
-            return False
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
 
 class Trying(object):
-    def basic(node):
-        return bool(type(node) is ast.Try)
-
-    def except_list(is_sought, except_list, node):
-        if type(except_list) in {set, list}:
-            except_names = set(
-                except_name.__name__
-                for except_name in except_list
-            )
-        else:
-            except_names = {except_list.__name__}
-
-        present_excepts = set([])
-        for handler in node.handlers:
-            if type(handler.type) is ast.Call:
-                present_excepts.add(handler.type.func.id)
-            elif type(handler.type) in {ast.Name, ast.NameConstant}:
-                present_excepts.add(handler.type.id)
-
-        absent_excepts = (except_names - present_excepts)
-        if is_sought:
-            return bool(absent_excepts == set())
-        else:
-            return bool(absent_excepts != set())
-        return (not is_sought)
-
-    def except_as_list(is_sought, as_list, node):
-        if type(as_list) in {set, list}:
-            as_names = set(as_name.__name__ for as_name in as_list)
-        else:
-            as_names = {str(as_list)}
-
-        present_as_names = set(
-            handler.name for handler in node.handlers
+    def basic(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(type(node) is ast.Try)
         )
-        absent_as_names = (as_names - present_as_names)
-        if is_sought:
-            return bool(absent_as_names == set())
-        else:
-            return bool(absent_as_names != set())
-        return (not is_sought)
 
-    def with_finally(is_sought, node):
-        if is_sought:
-            return bool(len(node.finalbody) != 0)
-        return bool(len(node.finalbody) == 0)
+    def finally_(finally_, node):
+        return ValidationForm(
+            finally_,
+            condition=bool(len(node.finalbody != 0))
+        )
 
-    def __new__(self, node, _with_except_list, _with_except_as_list,
-                _with_finally, consideration, _knowledge):
-        try:
-            partial_validators = set([consideration, self.basic(node=node)])
-            if _with_except_list is not None:
-                partial_validators.add(
-                    self.except_list(
-                        is_sought=bool(_with_except_list),
-                        except_list=_with_except_list,
-                        node=node
-                    )
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
+
+    class Except(object):
+        def basic(node, consideration):
+            return ValidationForm(
+                consideration,
+                condition=(
+                    any([type(handler.type) in {ast.Call,
+                                                ast.Name,
+                                                ast.NameConstant}
+                         for handler in node.handlers]) and
+                    Trying.basic(node, True)
                 )
-            if _with_except_as_list is not None:
-                partial_validators.add(
-                    self.except_as_list(
-                        is_sought=bool(_with_except_as_list),
-                        as_list=_with_except_as_list,
-                        node=node
-                    )
+            )
+
+        def type_(type_, node):
+            present_types = set([])
+            for handler in node.handlers:
+                if type(handler.type) is ast.Call:
+                    present_types.add(handler.type.func.id)
+                elif type(handler.type) in {ast.Name, ast.NameConstant}:
+                    present_types.add(handler.type.id)
+            return ValidationForm(
+                type_,
+                condition=bool(type_ in present_types)
+            )
+
+        def as_(as_, node):
+            return ValidationForm(
+                as_,
+                condition=bool(
+                    as_ in {handler.name for handler in node.handlers}
                 )
-            if _with_finally is not None:
-                partial_validators.add(
-                    self.with_finally(is_sought=bool(_with_finally), node=node)
-                )
-            return all(partial_validators)
-        except AttributeError:
-            return False
+            )
+
+        def __new__(self, **kwargs):
+            return ValidatorForm(self, **kwargs)
 
 
 class Raising(object):
-    def basic(node):
-        return bool(type(node) is ast.Raise)
+    def basic(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(type(node) is ast.Raise)
+        )
 
-    def error_type(error_type, node):
-        if type(node.exc) is ast.Call:
-            return bool(error_type.__name__ == node.exc.func.id)
-        elif type(node.exc) is ast.Name:
-            return bool(error_type.__name__ == node.exc.id)
-        return False
+    def __new__(self, **kwargs):
+        return ValidationForm(self, **kwargs)
 
-    def error_message(error_message, node):
-        if type(node.exc) is ast.Call:
-            if bool(len(node.exc.args) == 0):
-                return bool(error_message in {None, ""})
-            if type(node.exc.args[0]) is ast.Str:
-                return bool(error_message == node.exc.args[0].s)
-            if type(node.exc.args[0]) is ast.Num:
-                return bool(error_message == node.exc.args[0].n)
-        return False
+    class Error(object):
+        def basic(node, consideration):
+            return Raising.basic(node, consideration)
 
-    def cause(cause, node):
-        if type(node.cause) is ast.Name:
-            return bool(cause == node.cause.id)
-        return False
-
-    def __new__(self, node, _error_type, _error_message, _cause,
-                consideration, _knowledge):
-        try:
-            partial_validators = set([consideration, self.basic(node=node)])
-            if _error_type is not None:
-                partial_validators.add(
-                    self.error_type(error_type=_error_type, node=node)
-                )
-            if _error_message is not None:
-                partial_validators.add(
-                    self.error_message(error_message=_error_message, node=node)
-                )
-            if _cause is not None:
-                partial_validators.add(self.cause(cause=_cause, node=node))
-            return all(partial_validators)
-        except AttributeError:
+        def type_(type_, node):
+            if type_ is None:
+                return True
+            if type(node.exc) is ast.Call:
+                return bool(type_.__name__ == node.exc.func.id)
+            elif type(node.exc) is ast.Name:
+                return bool(type_.__name__ == node.exc.id)
             return False
+
+        def message(message, node):
+            if message is None:
+                return True
+            if type(node.exc) is ast.Call:
+                if bool(len(node.exc.args) == 0):
+                    return bool(message in {None, ""})
+                if type(node.exc.args[0]) is ast.Str:
+                    return bool(message == node.exc.args[0].s)
+                if type(node.exc.args[0]) is ast.Num:
+                    return bool(message == node.exc.args[0].n)
+            return False
+
+        def __new__(self, **kwargs):
+            return ValidatorForm(self, **kwargs)
+
+    class Cause(object):
+        def basic(node, consideration):
+            return ValidationForm(
+                consideration,
+                condition=(bool(node.case is not None) and
+                           Raising.basic(node, True))
+                )
+
+        def name(name, node):
+            if name is None:
+                return True
+            if type(node.cause) is ast.Name:
+                return bool(name == node.cause.id)
+            return False
+
+        def __new__(self, **kwargs):
+            return ValidationForm(self, **kwargs)
 
 
 class Yielding(object):
-    def regular(node):
+    def _regular(node):
         return bool(type(node) is ast.Yield)
 
-    def comprehension(is_sought, node):
-        if is_sought:
-            return bool(type(node) is ast.GeneratorExp)
-        return bool(type(node) is not ast.GeneratorExp)
+    def in_expression(node):
+        return bool(type(node) is ast.GeneratorExp)
 
-    def yield_from(is_sought, node):
-        if is_sought:
-            return bool(type(node) is ast.YieldFrom)
-        return bool(type(node) is not ast.YieldFrom)
-
-    def basic(node):
-        return bool(
-            Yielding.regular(node=node) or
-            Yielding.comprehension(is_sought=True, node=node) or
-            Yielding.yield_from(is_sought=True, node=node)
+    def from_(from_, node):
+        return ValidationForm(
+            from_,
+            condition=bool(type(node) is ast.YieldFrom)
         )
 
-    def __new__(self, node, _in_comprehension, _yield_from,
-                consideration, _knowledge):
-        try:
-            partial_validators = set([consideration, self.basic(node=node)])
-            if _in_comprehension is not None:
-                partial_validators.add(
-                    self.comprehension(
-                        is_sought=bool(_in_comprehension), node=node
-                    )
-                )
-            if _yield_from is not None:
-                partial_validators.add(
-                    self.yield_from(is_sought=bool(_yield_from), node=node)
-                )
-            return all(partial_validators)
-        except AttributeError:
-            return False
+    def basic(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(
+                Yielding._regular(node=node) or
+                Yielding.in_expression(node=node) or
+                Yielding.from_(consideration, node)
+            )
+        )
+
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
 
 class Making_Global(object):
-    def basic(node):
-        return bool(type(node) is ast.Global)
+    def basic(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(type(node) is ast.Global)
+        )
 
-    def _id_(_id, node):
-        return bool(_id in {str(name) for name in node.names})
+    def name(name, node):
+        return ValidationForm(
+            name,
+            condition=bool(
+                name in {str(node_name) for node_name in node.names}
+            )
+        )
 
-    def __new__(self, node, _id, consideration, _knowledge):
-        try:
-            partial_validators = set([consideration, self.basic(node=node)])
-            if _id is not None:
-                partial_validators.add(self._id_(_id=_id, node=node))
-            return all(partial_validators)
-        except AttributeError:
-            return False
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
 
 class Making_Nonlocal(object):
-    def basic(node):
-        return bool(type(node) is ast.Nonlocal)
+    def basic(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(type(node) is ast.Nonlocal)
+        )
 
-    def _id_(_id, node):
-        return bool(_id in {str(name) for name in node.names})
+    def name(name, node):
+        return ValidationForm(
+            name,
+            condition=bool(
+                name in {str(node_name) for node_name in node.names}
+            )
+        )
 
-    def __new__(self, node, _id, consideration, _knowledge):
-        try:
-            partial_validators = set([consideration, self.basic(node=node)])
-            if _id is not None:
-                partial_validators.add(self._id_(_id=_id, node=node))
-            return all(partial_validators)
-        except AttributeError:
-            return False
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
 
 class Passing(object):
-    def basic(node):
-        return bool(type(node) is ast.Pass)
+    def basic(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(type(node) is ast.Pass)
+        )
 
-    def __new__(self, node, consideration, _knowledge):
-        try:
-            partial_validators = set([consideration, self.basic(node=node)])
-            return all(partial_validators)
-        except AttributeError:
-            return False
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
 
 class Returning(object):
-    def regular(node):
+    def _regular(node):
         return bool(type(node) is ast.Return)
 
-    def in_lambda(node):
+    def _in_lambda(node):
         return False
         raise NotImplemented
 
-    def basic(node):
-        return bool(Returning.regular(node=node) or
-                    Returning.in_lambda(node=node))
+    def basic(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(Returning._regular(node) or
+                           Returning._in_lambda(node))
+            )
 
-    def __new__(self, node, consideration, _knowledge):
-        try:
-            partial_validators = set([consideration, self.basic(node=node)])
-            return all(partial_validators)
-        except AttributeError:
-            return False
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
 
 class Breaking(object):
-    def basic(node):
-        return bool(type(node) is ast.Break)
+    def basic(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(type(node) is ast.Break)
+        )
 
-    def __new__(self, node, consideration, _knowledge):
-        try:
-            partial_validators = set([consideration, self.basic(node=node)])
-            return all(partial_validators)
-        except AttributeError:
-            return False
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
 
 
 class Continuing(object):
-    def basic(node):
-        return bool(type(node) is ast.Continue)
+    def basic(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(type(node) is ast.Continuing)
+        )
 
-    def __new__(self, node, consideration, _knowledge):
-        try:
-            partial_validators = set([consideration, self.basic(node=node)])
-            return all(partial_validators)
-        except AttributeError:
-            return False
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
