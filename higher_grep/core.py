@@ -8,165 +8,349 @@ import sys
 if sys.version_info > (3, 0):
     long = int
 
+class Validators(object):
+    class Call(object):
+        def basic(node):
+            return bool(type(node) is ast.Call)
 
-def Constraints_template():
-    return {
-        'Action': {
-            'Call': {
-                'should_consider': None,
+        def __new__(self, node, consideration, knowledge):
+            try:
+                validators = set([consideration, self.basic(node=node)])
+                return all(validators)
+            except AttributeError:
+                return False
+
+
+
+class TemplateMaker(type):
+
+    def __new__(cls, name, parents, specs):
+
+        non_representables = {
+            *{
+                '__repr__', '__delattr__', '__setattr__', '__dict__',
+                '__name__', '__iter__', '__str__', '__getitem__',
             },
-            'Initialization': {
-                'should_consider': None,
+            '__itername__', 'view_actives', 'reset', '_class_vars', '_methods',
+        }
+
+        def set_attr_decorated(cls, name, value):
+            if name == name.capitalize():
+                raise TypeError("Can't set a value for a constraint type")
+
+            if not hasattr(cls, name):
+                raise KeyError(
+                    "Can't set an attribute that wasn't in the template"
+                )
+
+            if name != "consideration":
+                object.__setattr__(cls, "consideration", True)
+
+            object.__setattr__(cls, name, value)
+
+        def del_attr_decorated(cls, name):
+            raise Exception("Can't delete any part of the template")
+
+        def get_item_decorated(cls, key):
+            if key not in non_representables:
+                return getattr(cls, key)
+            raise KeyError(
+                "{} doesn't have the requested specification".format(
+                    cls.__name__
+                )
+            )
+
+        def view_actives(cls):
+            results = dict()
+            for key_name, key in zip(cls.__itername__(), cls):
+                if key_name in cls._class_vars:
+                    if key is not None:
+                        results[key_name] = key
+                elif key_name in cls._methods:
+                    key_if_active = view_actives(key)
+                    if key_if_active:
+                        results[key_name] = key_if_active
+            return results
+
+        def reset(cls, replace_with=None):
+            for attr in cls.__itername__():
+                if attr not in non_representables:
+                    if type(getattr(cls, attr)).__name__ == "Constraint":
+                        reset(getattr(cls, attr), replace_with)
+                    else:
+                        setattr(cls, attr, replace_with)
+
+        def wrapped(name, specs, with_consideration):
+            if type(specs) is not dict:
+                return specs
+
+            if any([type(specs[key]) is dict for key in specs]):
+                for key in specs:
+                    try:
+                        specs[key] = wrapped(
+                            key, specs[key], with_consideration
+                        )
+                    except AttributeError:
+                        print(key)
+
+            specs['__name__'] = name
+
+            if with_consideration:
+                specs['consideration'] = None
+
+            specs['__setattr__'] = set_attr_decorated
+
+            specs['__delattr__'] = del_attr_decorated
+
+            specs['__getitem__'] = get_item_decorated
+
+            specs['__iter__'] = (
+                lambda cls: (
+                    getattr(cls, key)
+                    for key in cls.__itername__()
+                    if key not in non_representables
+                )
+            )
+
+            specs['__itername__'] = (
+                lambda cls: (
+                    key
+                    for key in specs
+                    if key not in non_representables
+                )
+            )
+
+            specs['__repr__'] = (
+                lambda cls: (
+                    {
+                        str(key): getattr(cls, str(key))
+                        for key in cls.__itername__()
+                        if key not in non_representables
+                    }.__repr__()
+                ).replace("'", "")
+            )
+
+            specs['__str__'] = (lambda cls: cls.__name__)
+
+            specs['reset'] = (
+                lambda cls, resetting_value=None: reset(cls, resetting_value)
+            )
+
+            specs['view_actives'] = (
+                lambda cls: view_actives(cls)
+            )
+
+            specs['_class_vars'] = {
+                key: value
+                for key, value in specs.items()
+                if (key == key.lower()) and (key not in non_representables)
+            }
+
+            specs['_methods'] = {
+                key: value
+                for key, value in specs.items()
+                if ((key not in specs['_class_vars']) and
+                    (key not in non_representables))
+            }
+
+            return type("Constraint", (object,), specs)()
+
+        specs['__name__'] = name
+        with_consideration = specs['considerable']
+        del specs['considerable']
+
+        return wrapped(name, specs, with_consideration)
+
+
+class Action(object):
+    __Template_Form = {
+        'considerable': True,
+        'Call': dict(),
+        'Initialization': dict(),
+        'Import': {
+            'name': None,
+            'From': {
+                'name': None,
             },
-            'Import': {
-                'should_consider': None,
-                'id': None,
-                'from': None,
-                'from_id': None,
-                'as': None,
-            },
-            'Definition': {
-                'should_consider': None,
-            },
-            'Assignment': {
-                'should_consider': None,
-                'with_op': None,
-            },
-            'Assertion': {
-                'should_consider': None,
-                'with_error_msg': None,
-                'error_msg_content': None,
-            },
-            'Looping': {
-                'should_consider': None,
-                'for': None,
-                'while': None,
-                'for_else': None,
-                'with_break': None,
-                'with_non_terminating_test': None,
-            },
-            'Conditional': {
-                'should_consider': None,
-                'with_elif': None,
-                'with_else': None,
-                'is_ifexp': None,
-            },
-            'With': {
-                'should_consider': None,
-                'as': None,
-            },
-            'Deletion': {
-                'should_consider': None,
-            },
-            'Indexing': {
-                'should_consider': None,
-            },
-            'Trying': {
-                'should_consider': None,
-                'with_except_list': None,
-                'with_except_as_list': None,
-                'with_finally': None,
-            },
-            'Raising': {
-                'should_consider': None,
-                'error_type': None,
-                'error_message': None,
-                'cause': None,
-            },
-            'Yielding': {
-                'should_consider': None,
-                'in_comprehension': None,
-                'yield_from': None,
-            },
-            'Making_Global': {
-                'should_consider': None,
-                'id': None,
-            },
-            'Making_Nonlocal': {
-                'should_consider': None,
-                'id': None,
-            },
-            'Passing': {
-                'should_consider': None,
-            },
-            'Returning': {
-                'should_consider': None,
-            },
-            'Breaking': {
-                'should_consider': None,
-            },
-            'Continuing': {
-                'should_consider': None,
-            },
+            'As': {
+                'name': None,
+            }
         },
-        'Kind': {
-            'Variables': {
-                'should_consider': None,
-                'id': None,
-                'is_attribute': None,
-                'is_argument': None,
-            },
-            'STD_Types': {
-                'should_consider': None,
+        'Definition': dict(),
+        'Assignment': {
+            'Operational_Augmentation': {
+                'operation': None
+            }
+        },
+        'Assertion': {
+            'Error': {
+                'content': None
+            }
+        },
+        'Looping': {spec: None for spec in {
+            'for_', 'while_', 'for_else', 'with_break',
+            'with_simple_non_terminating_test'
+        }},
+        'Conditional': {spec: None for spec in {
+            'elif_', 'else_', 'ifexp'
+        }},
+        'With': {
+            'As': {
+                'name': None
+            }
+        },
+        'Deletion': dict(),
+        'Indexing': dict(),
+        'Trying': {
+            'Except': {
                 'type': None,
+                'as_': None
             },
-            'Functions': {
-                'should_consider': None,
-                'id': None,
-                'is_lambda': None,
-                'is_decorator': None,
+            'Finally': dict(),
+        },
+        'Raising': {
+            'Error': {
+                'type': None,
+                'message': None
             },
-            'Decorators': {
-                'should_consider': None,
-                'id': None,
-            },
-            'Classes': {
-                'should_consider': None,
-                'id': None,
-                'superclass_type': None,
-            },
-            'Attributes': {
-                'should_consider': None,
-                'id': None,
-                'class_id': None,
-            },
-            'Methods': {
-                'should_consider': None,
-                'id': None,
-                'class_id': None,
-            },
-            'Generators': {
-                'should_consider': None,
-                'id': None,
-            },
-            'Comprehensions': {
-                'should_consider': None,
-                'of_list': None,
-                'of_dict': None,
-                'of_gen': None,
-            },
-            'Operations': {
-                'should_consider': None,
-                'operation_str': None,
-                'is_unary': None,
-                'is_binary': None,
+            'Cause': {
+                'name': None
             },
         },
-        'Location_Limit': {
-            'Line_Numbers': {
-                'minimum': None,
-                'maximum': None,
-            },
-            'Column_Numbers': {
-                'minimum': None,
-                'maximum': None,
+        'Yielding': {
+            'From': dict(),
+            'In_GeneratorExp': dict(),
+        },
+        **{
+            specs: {'name': None}
+            for specs in {
+                    'Making_Global', 'Making_Nonlocal', 'Passing',
+                    'Returning', 'Breaking', 'Continuing'}
+        },
+
+    }
+
+    def __new__(self):
+        return TemplateMaker("Action", (object,), self.__Template_Form.copy())
+
+
+class Kind(object):
+    __Template_Form = {
+        'considerable': True,
+        'Variables': {
+            spec: None
+            for spec in {
+                    'name', 'is_attribute', 'is_argument'
+            }
+        },
+        'STD_Types': {
+            'type': None
+        },
+        'Functions': {
+            spec: None
+            for spec in {
+                    'name', 'is_lambda', 'is_decorator'
+            }
+        },
+        'Classes': {
+            'name': None,
+            'Bases': {
+                'list_': None,
+            }
+        },
+        'Attributes': {
+            'name': None,
+            'Of_Class': {
+                'name': None
+            }
+        },
+        'Methods': {
+            'name': None,
+            'Of_Class': {
+                'name': None
+            }
+        },
+        'Generators': {
+            'name': None,
+            'is_expression': None,
+        },
+        'Comprehensions': {
+            spec: None for spec in {
+                'of_list', 'of_set', 'of_dict', 'of_gen'
+            }
+        },
+        'Operations': {
+            'stringified_value': None,
+            'is_unary': None,
+            'is_binary': None,
+        }
+    }
+
+    def __new__(self):
+        return TemplateMaker("Kind", (object,), self.__Template_Form.copy())
+
+
+class Limit(object):
+    __Template_Form = {
+        'considerable': False,
+        'Positional': {
+            **{
+                key: {
+                    'minimum': None,
+                    'maximum': None
+                } for key in {'Line_Numbers', 'Column_Numbers'}
             }
         }
     }
 
+    def __new__(self):
+        return TemplateMaker("Limit", (object,), self.__Template_Form.copy())
+
+
+class Constraint(object):
+    def __init__(self):
+        self.__template = namedtuple(
+            "Constraints", "Action Kind Limit"
+        )(Action(), Kind(), Limit())
+
+        self.Action = self.__template.Action
+        self.Kind = self.__template.Kind
+        self.Limit = self.__template.Limit
+
+    def reset(self, replace_with=None):
+        self.Action.reset(replace_with)
+        self.Kind.reset(replace_with)
+        self.Limit.reset(replace_with)
+
+    def view_actives(self):
+        return {
+            key: value.view_actives()
+            for key, value in {
+                    ('Action', self.Action),
+                    ('Kind', self.Kind),
+                    ('Limit', self.Limit)
+            } if bool(value.view_actives())
+        }
+
+    def __iter__(self):
+        for constraint in [self.Action, self.Kind, self.Limit]:
+            yield constraint
+
+    def __repr__(self):
+        return {
+            constraint.__name__: constraint
+            for constraint in {self.Action, self.Kind, self.Limit}
+        }.__repr__().replace("'", "")
+
+    def __str__(self):
+        return "Constraint"
+        # return "{}=({})".format("Constraints", ", ".join([
+        #     x.__name__ for x in {self.Action, self.Kind, self.Limit}
+        # ]))
+
 
 def Knowledge_template():
-    _knowledge = {
+    knowledge = {
         'comprehension_forms': {
             ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp
         },
@@ -194,14 +378,14 @@ def Knowledge_template():
             }
         }
     }
-    _knowledge['builtins']['types'] = {
+    knowledge['builtins']['types'] = {
         builtin_type
-        for builtin_kind_set in _knowledge['builtins']['kinds'].values()
+        for builtin_kind_set in knowledge['builtins']['kinds'].values()
         for builtin_type in builtin_kind_set
     }
-    _knowledge['builtins']['all'] = (set(dir(__builtins__)) |
-                                     _knowledge['builtins']['keywords'])
-    return _knowledge
+    knowledge['builtins']['all'] = (set(dir(__builtins__)) |
+                                    knowledge['builtins']['keywords'])
+    return knowledge
 
 
 def update_knowledge_template(
@@ -285,154 +469,48 @@ def _ast_mapped_operators():
                 current_element = other_element
         return all(results)
 
-    ast_mappings = dict()
-
-    equality_definition_checker = partial(
-        basic_reducer, definition=(lambda x, y: x == y)
+    ast_mappings = {
+        ast_operation: partial(basic_reducer, definition)
+        for ast_operation, definition in {
+            (ast.Is, lambda x, y:  y if x is y else None),
+            (ast.Not, lambda x: not x),
+            (ast.And, lambda x, y: x and y),
+            (ast.Or, lambda x, y: x or y),
+            (ast.In, lambda x, y: x in y),
+            (ast.Eq, lambda x, y: x == y),
+            (ast.Lt, lambda x, y: x < y),
+            (ast.UAdd, lambda x: +x),
+            (ast.USub, lambda x: -x),
+            (ast.Add, lambda x, y: x + y),
+            (ast.Sub, lambda x, y: x - y),
+            (ast.Mult, lambda x, y: x * y),
+            (ast.Div, lambda x, y: x / y),
+            (ast.FloorDiv, lambda x, y: x // y),
+            (ast.Mod, lambda x, y: x % y),
+            (ast.Pow, lambda x, y: x ** y),
+            (ast.MatMult, lambda x, y: x @ y),
+            (ast.Invert, lambda x: ~x),
+            (ast.LShift, lambda x, y: x << y),
+            (ast.RShift, lambda x, y: x >> y),
+            (ast.BitAnd, lambda x, y: x & y),
+            (ast.BitOr, lambda x, y: x | y),
+            (ast.BitXor, lambda x, y: x ^ y)
+        }
+    }
+    ast_mappings[ast.LtE] = (
+        lambda x, y: (ast_mappings[ast.Lt](x, y) or
+                      ast_mappings[ast.Eq](x, y))
     )
-    ast_mappings[ast.Eq.__name__] = equality_definition_checker
-
-    inequality_definition_checker = (
-        lambda *args: not equality_definition_checker(*args)
-    )
-    ast_mappings[ast.NotEq.__name__] = inequality_definition_checker
-
-    less_than_definition_checker = partial(
-        basic_reducer, definition=(lambda x, y: x < y)
-    )
-    ast_mappings[ast.Lt.__name__] = less_than_definition_checker
-
-    less_than_or_equal_definition_checker = (
-        lambda *args: (less_than_definition_checker(*args) or
-                       equality_definition_checker(*args))
-    )
-    ast_mappings[ast.LtE.__name__] = less_than_or_equal_definition_checker
-
-    greater_than_or_equal_definition_checker = (
-        lambda *args: not less_than_definition_checker(*args)
-    )
-    ast_mappings[ast.GtE.__name__] = greater_than_or_equal_definition_checker
-
-    greater_than_definition_checker = (
-        lambda *args: not less_than_or_equal_definition_checker(*args)
-    )
-    ast_mappings[ast.GtE.__name__] = greater_than_definition_checker
-
-    is_definition_checker = partial(
-        basic_reducer, definition=(lambda x, y: bool(x is y)))
-    ast_mappings[ast.Is.__name__] = is_definition_checker
-
-    is_not_definition_checker = (
-        lambda *args: not is_definition_checker(*args)
-    )
-    ast_mappings[ast.IsNot.__name__] = is_not_definition_checker
-
-    in_definition_checker = partial(
-        basic_reducer, definition=(lambda x, y: bool(x in y))
-    )
-    ast_mappings[ast.In.__name__] = in_definition_checker
-
-    not_in_definition_checker = (
-        lambda *args: not in_definition_checker(*args)
-    )
-    ast_mappings[ast.NotIn.__name__] = not_in_definition_checker
-
-    additive_identity_definition_checker = partial(
-        basic_reducer, definition=(lambda x: +x)
-    )
-    ast_mappings[ast.UAdd.__name__] = additive_identity_definition_checker
-
-    additive_inverse_definition_checker = partial(
-        basic_reducer, definition=(lambda x: -x)
-    )
-    ast_mappings[ast.USub.__name__] = additive_inverse_definition_checker
-
-    addition_definition_checker = partial(
-        basic_reducer, definition=(lambda x, y: x + y)
-    )
-    ast_mappings[ast.Add.__name__] = addition_definition_checker
-
-    subtraction_definition_checker = partial(
-        basic_reducer, definition=(lambda x, y: x - y)
-    )
-    ast_mappings[ast.Sub.__name__] = subtraction_definition_checker
-
-    multiplication_definition_checker = partial(
-        basic_reducer, definition=(lambda x, y: x * y)
-    )
-    ast_mappings[ast.Mult.__name__] = multiplication_definition_checker
-
-    division_definition_checker = partial(
-        basic_reducer, definition=(lambda x, y: x / y)
-    )
-    ast_mappings[ast.Div.__name__] = division_definition_checker
-
-    integer_division_definition_checker = partial(
-        basic_reducer, definition=(lambda x, y: x // y)
-    )
-    ast_mappings[ast.FloorDiv.__name__] = integer_division_definition_checker
-
-    modulo_definition_checker = partial(
-        basic_reducer, definition=(lambda x, y: x % y)
-    )
-    ast_mappings[ast.Mod.__name__] = modulo_definition_checker
-
-    exponentiation_definition_checker = partial(
-        basic_reducer, definition=(lambda x, y: x ** y)
-    )
-    ast_mappings[ast.Pow.__name__] = exponentiation_definition_checker
-
-    matrix_multiplication_definition_checker = partial(
-        basic_reducer, definition=(lambda x, y: x @ y)
-    )
-    ast_mappings[
-        ast.MatMult.__name__] = matrix_multiplication_definition_checker
-
-    boolean_not_definition_checker = partial(
-        basic_reducer, definition=(lambda x: not x)
-    )
-    ast_mappings[ast.Not.__name__] = boolean_not_definition_checker
-
-    boolean_and_definition_checker = partial(
-        basic_reducer, definition=(lambda x, y: x and y)
-    )
-    ast_mappings[ast.And.__name__] = boolean_and_definition_checker
-
-    boolean_or_definition_checker = partial(
-        basic_reducer, definition=(lambda x, y: x or y)
-    )
-    ast_mappings[ast.Or.__name__] = boolean_or_definition_checker
-
-    bitwise_inversion_definition_checker = partial(
-        basic_reducer, definition=(lambda x: ~x)
-    )
-    ast_mappings[ast.Invert.__name__] = bitwise_inversion_definition_checker
-
-    bitwise_left_shift_definition_checker = partial(
-        basic_reducer, definition=(lambda x, y: x << y)
-    )
-    ast_mappings[ast.LShift.__name__] = bitwise_left_shift_definition_checker
-
-    bitwise_right_shift_definition_checker = partial(
-        basic_reducer, definition=(lambda x, y: x >> y)
-    )
-    ast_mappings[ast.RShift.__name__] = bitwise_right_shift_definition_checker
-
-    bitwise_and_definition_checker = partial(
-        basic_reducer, definition=(lambda x, y: x & y)
-    )
-    ast_mappings[ast.BitAnd.__name__] = bitwise_and_definition_checker
-
-    bitwise_or_definition_checker = partial(
-        basic_reducer, definition=(lambda x, y: x | y)
-    )
-    ast_mappings[ast.BitOr.__name__] = bitwise_or_definition_checker
-
-    bitwise_xor_definition_checker = partial(
-        basic_reducer, definition=(lambda x, y: x ^ y)
-    )
-    ast_mappings[ast.BitXor.__name__] = bitwise_xor_definition_checker
-
+    for ast_not_operation, previously_defined_ast_operation in {
+            (ast.IsNot, ast.Is),
+            (ast.NotIn, ast.In),
+            (ast.NotEq, ast.Eq),
+            (ast.Gte, ast.Lt),
+            (ast.Gt, ast.LtE),
+    }:
+        ast_mappings[ast_not_operation] = ast_mappings[ast.Not](
+            ast_mappings[previously_defined_ast_operation]
+        )
     return ast_mappings
 
 
@@ -490,7 +568,8 @@ class Result(object):
         return bool(
             (self.name == other.name) and (
                 (self.line < other.line) or
-                (self.column < other.column)
+                ((self.line == other.line) and
+                 (self.column < other.column))
             )
         )
 

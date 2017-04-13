@@ -1,53 +1,94 @@
 from higher_grep.core import comparison_evaluator
+from inspect import getfullargspec as spec
 import ast
+
+
+def ValidatorForm(**kwargs):
+    def func_call_from_kwargs(f, keyword_dict):
+        return f(**{
+            key: keyword_dict[key]
+            for key in keyword_dict
+            if key in spec(f).args
+        })
+
+    cls = kwargs['cls']
+    try:
+        validators = set([
+            kwargs['consideration'], func_call_from_kwargs(cls.basic, kwargs)
+        ])
+        for kwarg in kwargs:
+            if kwarg not in {
+                    *list(spec(cls.basic).args),
+                    'consideration', 'knowledge'
+            }:
+                validators.add(func_call_from_kwargs(
+                    getattr(cls, kwarg), kwargs
+                ))
+        return all(validators)
+    except AttributeError:
+        return False
 
 
 class Call(object):
     def basic(node):
         return bool(type(node) is ast.Call)
 
-    def __new__(self, node, should_consider, _knowledge):
+    def __new__(self, node, consideration, knowledge):
         try:
-            partial_validators = set([should_consider, self.basic(node=node)])
-            return all(partial_validators)
+            validators = set([consideration, self.basic(node=node)])
+            return all(validators)
         except AttributeError:
             return False
 
 
+class Initialization(object):
+    def basic(node):
+        pass
+
+    def __new__(self, node, consideration, knowledge):
+        pass
+
+
 class Import(object):
+
+    class From(object):
+        def basic(self, node):
+            return bool(type(node) is ast.ImportFrom)
+
+        def name(self, name, node):
+            return bool(node.id == name)
+
+        def __new__(self, node, name, consideration, knowledge):
+            try:
+                validators = set([consideration, self.basic(node)])
+                if name is not None:
+                    validators.add(self.name(node, name))
+                return all(validators)
+            except AttributeError:
+                return False
+
+    class As(object):
+        def basic(self, node, name):
+            return bool(name in [sub.asname for sub in node.names])
+
+        def __new__(self, node, name, consideration, knowledge):
+            try:
+                validators = set([consideration, self.basic(node, name)])
+                return all(validators)
+            except AttributeError:
+                return False
+
     def basic(node):
         return bool(type(node) in {ast.Import, ast.ImportFrom})
 
-    def _from_(is_sought, node):
-        if is_sought:
-            return bool(type(node) is not ast.Import)
-        return bool(type(node) is not ast.ImportFrom)
+    def name(name, node):
+        return bool(name in {sub.name for sub in node.names})
 
-    def _id_(_id, node):
-        return bool(_id in {sub.name for sub in node.names})
-
-    def from_id(_from_id, node):
-        return bool(_from_id == node.module)
-
-    def _as_(_as, node):
-        return bool(_as in [sub.asname for sub in node.names])
-
-    def __new__(self, node, _id, _from, _from_id, _as, should_consider,
-                _knowledge):
+    def __new__(self, node, name, consideration, knowledge):
         try:
-            partial_validators = set([should_consider, self.basic(node=node)])
-            if _from is not None:
-                partial_validators.add(
-                    self._from_(is_sought=bool(_from), node=node)
-                )
-            if _id is not None:
-                partial_validators.add(self._id_(_id=_id, node=node))
-            if _from_id is not None:
-                partial_validators.add(
-                    self.from_id(_from_id=_from_id, node=node)
-                )
-            if _as is not None:
-                partial_validators.add(self._as_(_as=_as, node=node))
+            partial_validators = set([consideration, self.basic(node)])
+            if name is not None:
+                partial_validators.add(self.name(name, node))
             return all(partial_validators)
         except AttributeError:
             return False
@@ -57,31 +98,35 @@ class Definition(object):
     def basic(node):
         return bool(type(node) in {ast.FunctionDef, ast.ClassDef})
 
-    def __new__(self, node, should_consider, _knowledge):
+    def __new__(self, node, consideration, knowledge):
         try:
-            partial_validators = set([should_consider, self.basic(node=node)])
-            return all(partial_validators)
+            validators = set([consideration, self.basic(node)])
+            return all(validators)
         except AttributeError:
             return False
 
 
 class Assignment(object):
+    class Operational_Augmentation(object):
+        def basic(node):
+            return bool(type(node) is ast.AugAssign)
+
+        def __new__(self, node, operation, consideration, knowledge):
+            try:
+                validators = set([consideration, self.basic(node)])
+                if operation is not None:
+                    validators.add(self.operation(operation, node, knowledge))
+                return all(validators)
+            except AttributeError:
+                return False
+
     def basic(node):
         return bool(type(node) in {ast.Assign, ast.AugAssign})
 
-    def with_op(is_sought, node):
-        if is_sought:
-            return bool(type(node) is not ast.Assign)
-        return bool(type(node) is not ast.AugAssign)
-
-    def __new__(self, node, _with_op, should_consider, _knowledge):
+    def __new__(self, node, consideration, knowledge):
         try:
-            partial_validators = set([should_consider, self.basic(node=node)])
-            if _with_op is not None:
-                partial_validators.add(
-                    self.with_op(is_sought=bool(_with_op), node=node)
-                )
-            return all(partial_validators)
+            validators = set([consideration, self.basic(node)])
+            return all(validators)
         except AttributeError:
             return False
 
@@ -99,9 +144,9 @@ class Assertion(object):
         return bool(_error_msg_content == node.msg)
 
     def __new__(self, node, _with_error_msg, _error_msg_content,
-                should_consider, _knowledge):
+                consideration, _knowledge):
         try:
-            partial_validators = set([should_consider, self.basic(node=node)])
+            partial_validators = set([consideration, self.basic(node=node)])
             if _with_error_msg is not None:
                 partial_validators.add(
                     self.with_error_msg(
@@ -208,10 +253,10 @@ class Looping(object):
 
     def __new__(self, node, _for, _while, _for_else, _with_break,
                 _with_non_terminating_test,
-                should_consider, _knowledge):
+                consideration, _knowledge):
         try:
             partial_validators = set([
-                should_consider, self.basic(node=node, knowledge=_knowledge)
+                consideration, self.basic(node=node, knowledge=_knowledge)
             ])
             if _for is not None:
                 partial_validators.add(
@@ -323,10 +368,10 @@ class Conditional(object):
         return bool(is_sought is Conditional.expression(node=node))
 
     def __new__(self, node, _with_elif, _with_else, _is_ifexp,
-                should_consider, _knowledge):
+                consideration, _knowledge):
         try:
             partial_validators = set([
-                should_consider, self.basic(node=node, knowledge=_knowledge)
+                consideration, self.basic(node=node, knowledge=_knowledge)
             ])
             if _with_elif is not None:
                 partial_validators.add(
@@ -355,9 +400,9 @@ class With(object):
         return any([bool(_as == with_item.optional_vars.id)
                     for with_item in node.items])
 
-    def __new__(self, node, _as, should_consider, _knowledge):
+    def __new__(self, node, _as, consideration, _knowledge):
         try:
-            partial_validators = set([should_consider, self.basic(node=node)])
+            partial_validators = set([consideration, self.basic(node=node)])
             if _as is not None:
                 partial_validators.add(self._as_(_as=_as, node=node))
             return all(partial_validators)
@@ -369,9 +414,9 @@ class Deletion(object):
     def basic(node):
         return bool(type(node) is ast.Delete)
 
-    def __new__(self, node, should_consider, _knowledge):
+    def __new__(self, node, consideration, _knowledge):
         try:
-            partial_validators = set([should_consider, self.basic(node=node)])
+            partial_validators = set([consideration, self.basic(node=node)])
             return all(partial_validators)
         except AttributeError:
             return False
@@ -381,9 +426,9 @@ class Indexing(object):
     def basic(node):
         return bool(type(node) is ast.Subscript)
 
-    def __new__(self, node, should_consider, _knowledge):
+    def __new__(self, node, consideration, _knowledge):
         try:
-            partial_validators = set([should_consider, self.basic(node=node)])
+            partial_validators = set([consideration, self.basic(node=node)])
             return all(partial_validators)
         except AttributeError:
             return False
@@ -438,9 +483,9 @@ class Trying(object):
         return bool(len(node.finalbody) == 0)
 
     def __new__(self, node, _with_except_list, _with_except_as_list,
-                _with_finally, should_consider, _knowledge):
+                _with_finally, consideration, _knowledge):
         try:
-            partial_validators = set([should_consider, self.basic(node=node)])
+            partial_validators = set([consideration, self.basic(node=node)])
             if _with_except_list is not None:
                 partial_validators.add(
                     self.except_list(
@@ -493,9 +538,9 @@ class Raising(object):
         return False
 
     def __new__(self, node, _error_type, _error_message, _cause,
-                should_consider, _knowledge):
+                consideration, _knowledge):
         try:
-            partial_validators = set([should_consider, self.basic(node=node)])
+            partial_validators = set([consideration, self.basic(node=node)])
             if _error_type is not None:
                 partial_validators.add(
                     self.error_type(error_type=_error_type, node=node)
@@ -533,9 +578,9 @@ class Yielding(object):
         )
 
     def __new__(self, node, _in_comprehension, _yield_from,
-                should_consider, _knowledge):
+                consideration, _knowledge):
         try:
-            partial_validators = set([should_consider, self.basic(node=node)])
+            partial_validators = set([consideration, self.basic(node=node)])
             if _in_comprehension is not None:
                 partial_validators.add(
                     self.comprehension(
@@ -558,9 +603,9 @@ class Making_Global(object):
     def _id_(_id, node):
         return bool(_id in {str(name) for name in node.names})
 
-    def __new__(self, node, _id, should_consider, _knowledge):
+    def __new__(self, node, _id, consideration, _knowledge):
         try:
-            partial_validators = set([should_consider, self.basic(node=node)])
+            partial_validators = set([consideration, self.basic(node=node)])
             if _id is not None:
                 partial_validators.add(self._id_(_id=_id, node=node))
             return all(partial_validators)
@@ -575,9 +620,9 @@ class Making_Nonlocal(object):
     def _id_(_id, node):
         return bool(_id in {str(name) for name in node.names})
 
-    def __new__(self, node, _id, should_consider, _knowledge):
+    def __new__(self, node, _id, consideration, _knowledge):
         try:
-            partial_validators = set([should_consider, self.basic(node=node)])
+            partial_validators = set([consideration, self.basic(node=node)])
             if _id is not None:
                 partial_validators.add(self._id_(_id=_id, node=node))
             return all(partial_validators)
@@ -589,9 +634,9 @@ class Passing(object):
     def basic(node):
         return bool(type(node) is ast.Pass)
 
-    def __new__(self, node, should_consider, _knowledge):
+    def __new__(self, node, consideration, _knowledge):
         try:
-            partial_validators = set([should_consider, self.basic(node=node)])
+            partial_validators = set([consideration, self.basic(node=node)])
             return all(partial_validators)
         except AttributeError:
             return False
@@ -609,9 +654,9 @@ class Returning(object):
         return bool(Returning.regular(node=node) or
                     Returning.in_lambda(node=node))
 
-    def __new__(self, node, should_consider, _knowledge):
+    def __new__(self, node, consideration, _knowledge):
         try:
-            partial_validators = set([should_consider, self.basic(node=node)])
+            partial_validators = set([consideration, self.basic(node=node)])
             return all(partial_validators)
         except AttributeError:
             return False
@@ -621,9 +666,9 @@ class Breaking(object):
     def basic(node):
         return bool(type(node) is ast.Break)
 
-    def __new__(self, node, should_consider, _knowledge):
+    def __new__(self, node, consideration, _knowledge):
         try:
-            partial_validators = set([should_consider, self.basic(node=node)])
+            partial_validators = set([consideration, self.basic(node=node)])
             return all(partial_validators)
         except AttributeError:
             return False
@@ -633,9 +678,9 @@ class Continuing(object):
     def basic(node):
         return bool(type(node) is ast.Continue)
 
-    def __new__(self, node, should_consider, _knowledge):
+    def __new__(self, node, consideration, _knowledge):
         try:
-            partial_validators = set([should_consider, self.basic(node=node)])
+            partial_validators = set([consideration, self.basic(node=node)])
             return all(partial_validators)
         except AttributeError:
             return False

@@ -1,10 +1,10 @@
-from functools import partial
-from higher_grep import validators
+from higher_grep.Validators import Grepper as Validators
 from higher_grep.core import establish_parent_link
-from higher_grep.core import Constraints_template
+from higher_grep.core import Constraint
 from higher_grep.core import Knowledge_template
 from higher_grep.core import update_knowledge_template
 from higher_grep.core import Result
+from functools import namedtuple, partial
 import ast
 import os
 
@@ -17,89 +17,78 @@ class Grepper(object):
                 self.__ast = establish_parent_link(ast.parse(f.read()))
                 self.__source = f
                 self.__name = os.path.basename(source_abs_path)
-                self.__constraints_template = Constraints_template()
                 self.__knowledge_template = update_knowledge_template(
                     ast_tree_with_parent_pointers=self.__ast,
                     knowledge_template=Knowledge_template(),
                     results_name=self.__name
                 )
+                self.constraint_list = list()
             except TypeError as e:
                 print(e)
 
     def get_source(self):
-        return self.__source[:]
+        return self.__source
 
     def get_knowledge(self):
         return self.__knowledge_template
 
-    def get_constraints(self):
-        unfiltered_constraints = {
-            constraint_type: {
-                job: {
-                    arg: self.__constraints_template[constraint_type][job][arg]
-                    for arg in self.__constraints_template[constraint_type][
-                        job]
-                    if (self.__constraints_template[constraint_type][job][arg]
-                        is not None)
-                }
-                for job in self.__constraints_template[constraint_type]
-            }
-            for constraint_type in self.__constraints_template
-        }
-        constraints = {
-            constraint_type: {
-                job: {
-                    arg: unfiltered_constraints[constraint_type][job][arg]
-                    for arg in unfiltered_constraints[constraint_type][job]
-                }
-                for job in unfiltered_constraints[constraint_type]
-                if len(unfiltered_constraints[constraint_type][job]) != 0
-            }
-            for constraint_type in unfiltered_constraints
-        }
-        return constraints
-
-    def reset_constraints(self):
-        self.__constraints_template = Constraints_template()
-
-    def _validator_predicate_extracter(self):
-        constraints = self.get_constraints()
-        validator_predicates = {
-            constraint_type: {
-                job: (validators.__dict__[
-                    "{}".format(constraint_type)].__dict__[
-                        "{}".format(job)]
-                ) for job in constraints[constraint_type]
-            }
-            for constraint_type in constraints
-        }
-        validator_partial_predicates = {
-            partial(validator_predicates[constraint_type][job],
-                    **{(lambda key: (
-                        key if key == 'should_consider' else
-                        "_{}".format(key)
-                    ))(key): value
-                       for key, value in (
-                               self.__constraints_template[
-                                   constraint_type][job].items()
-                       )})
-            for constraint_type in validator_predicates
-            for job in validator_predicates[constraint_type]
-        }
-        return validator_partial_predicates
-
     def add_constraint(self, constraint):
-        assert bool(constraint.__name__ == "constraint_template_modifier"), (
-            "Invalid constraint"
-        )
-        constraint(self.__constraints_template)
+        if isinstance(constraint, Constraint):
+            self.constraint_list.append(constraint)
+        else:
+            raise TypeError("The input is not a Constraint object")
+
+    def _validator_predicates_deriver(self):
+
+        def per_constraint_deriver(constraint):
+
+            def validator_tracker(cls):
+                results = list()
+                parents = list()
+
+                def wrapped(cls, parents):
+                    keywords = dict()
+                    for key in cls.view_actives():
+                        value = getattr(cls, key)
+                        if type(value).__name__ != "Constraint":
+                            keywords[key] = value
+                        else:
+                            wrapped(value, parents + [key])
+                    if bool(keywords):
+                        results.append(namedtuple(
+                            "Validator_specification", "address kwargs")(
+                                parents, keywords
+                            ))
+
+                wrapped(cls, parents)
+                return results
+
+            validator_specs = validator_tracker(constraint)
+
+            validators = list()
+            for specs in validator_specs:
+                result = getattr(Validators, specs.address[0])
+                for address_index in range(1, len(specs.address)):
+                    result = getattr(result, specs.address[address_index])
+                validators.append(partial(result, **specs.kwargs))
+
+            return validators
+
+        return [
+            per_constraint_deriver(constraint)
+            for constraint in self.constraint_list
+        ]
 
     def run(self):
-        validator_predicates = self._validator_predicate_extracter()
+        validator_predicates = {
+            validator_predicate
+            for constraint_block in self._validator_predicates_deriver()
+            for validator_predicate in constraint_block
+        }
         for node in ast.walk(self.__ast):
             if all([
                     validator_predicate(
-                        node=node, _knowledge=self.get_knowledge()
+                        node=node, knowledge=self.__knowledge_template
                     ) for validator_predicate in validator_predicates
             ]):
                 yield Result(
