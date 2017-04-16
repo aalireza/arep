@@ -72,25 +72,29 @@ class Variables(object):
 
 class STD_Types(object):
     def basic(node, consideration, knowledge):
-        return ValidationForm(
-            consideration,
-            condition=(
-                False
-                if bool(type(node) is not ast.Name)
-                else (bool([
-                        node.id in [
-                            builtin_type.__name__
-                            for builtin_type in knowledge['builtins']['types']
-                        ]
-                ]))
+        if consideration is None:
+            return True
+        if bool(type(node) is ast.Name):
+            return ValidationForm(
+                consideration,
+                condition=bool(
+                    node.id in [
+                        builtin_type.__name__
+                        for builtin_type in knowledge['builtins']['types']
+                    ]
+                )
             )
-        )
+        return not consideration
 
-    def type_(type_, node):
-        return ValidationForm(
-            type_,
-            condition=bool(node.id == type_.__name__)
-        )
+    def type_(type_, node, knowledge):
+        if type_ is None:
+            return True
+        if STD_Types.basic(node, type_, knowledge):
+            return ValidationForm(
+                type_,
+                condition=bool(node.id == type_.__name__)
+            )
+        return not type_
 
     def __new__(self, **kwargs):
         return ValidatorForm(self, **kwargs)
