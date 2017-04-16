@@ -1,5 +1,6 @@
 import higher_grep as hg
 import pytest
+import ast
 
 
 ops = hg.utils._ast_mapped_operators()
@@ -16,4 +17,4 @@ ops = hg.utils._ast_mapped_operators()
     ([pytest, pytest], True)
 ])
 def test_eq(args, result):
-    assert ops['Eq'](*args) == result
+    assert ops[ast.Eq](*args) == result
