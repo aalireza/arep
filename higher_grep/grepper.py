@@ -1,9 +1,8 @@
-from higher_grep.Validators import Grepper as Validators
-from higher_grep.core import establish_parent_link
-from higher_grep.core import Constraint
-from higher_grep.core import Knowledge_template
-from higher_grep.core import update_knowledge_template
-from higher_grep.core import Result
+from higher_grep.utils import establish_parent_link
+from higher_grep.utils import Knowledge_template
+from higher_grep.utils import update_knowledge_template
+from higher_grep.utils import Result
+from higher_grep import Validators
 from functools import namedtuple, partial
 import ast
 import os
@@ -33,10 +32,7 @@ class Grepper(object):
         return self.__knowledge_template
 
     def add_constraint(self, constraint):
-        if isinstance(constraint, Constraint):
-            self.constraint_list.append(constraint)
-        else:
-            raise TypeError("The input is not a Constraint object")
+        self.constraint_list.append(constraint)
 
     def _validator_predicates_deriver(self):
 
@@ -44,13 +40,15 @@ class Grepper(object):
 
             def validator_tracker(cls):
                 results = list()
-                parents = list()
+                parents = [cls.__name__]
 
                 def wrapped(cls, parents):
                     keywords = dict()
                     for key in cls.view_actives():
                         value = getattr(cls, key)
-                        if type(value).__name__ != "Constraint":
+                        if type(value).__name__ not in {
+                            "Action", "Kind", "Properties"
+                        }:
                             keywords[key] = value
                         else:
                             wrapped(value, parents + [key])
@@ -67,6 +65,7 @@ class Grepper(object):
 
             validators = list()
             for specs in validator_specs:
+                print(specs)
                 result = getattr(Validators, specs.address[0])
                 for address_index in range(1, len(specs.address)):
                     result = getattr(result, specs.address[address_index])
@@ -91,9 +90,13 @@ class Grepper(object):
                         node=node, knowledge=self.__knowledge_template
                     ) for validator_predicate in validator_predicates
             ]):
-                yield Result(
-                    name=self.__name, line=node.lineno, column=node.col_offset
-                )
+                try:
+                    yield Result(
+                        name=self.__name,
+                        line=node.lineno, column=node.col_offset
+                    )
+                except AttributeError:
+                    pass
 
     def get_all_results(self):
         return list(self.run())

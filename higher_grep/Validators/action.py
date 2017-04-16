@@ -1,5 +1,5 @@
-from higher_grep.core import comparison_evaluator
-from higher_grep.Validators import ValidationForm, ValidatorForm
+from higher_grep.utils import comparison_evaluator
+from higher_grep.Validators.forms import ValidationForm, ValidatorForm
 import ast
 
 
@@ -29,11 +29,13 @@ class Import(object):
             condition=bool(type(node) in {ast.Import, ast.ImportFrom})
         )
 
-    def name(node, name, consideration):
-        return ValidationForm(
-            consideration,
-            condition=bool(name in {sub.name for sub in node.names})
-        )
+    def name(name, node):
+        if Import.basic(node, True):
+            return ValidationForm(
+                name,
+                condition=bool(name in {sub.name for sub in node.names})
+            )
+        return not name
 
     def __new__(self, **kwargs):
         return ValidatorForm(self, **kwargs)
@@ -45,28 +47,33 @@ class Import(object):
                 condition=bool(type(node) is ast.ImportFrom)
             )
 
-        def name(node, name, consideration):
-            return ValidationForm(
-                consideration,
-                condition=bool(node.id == name)
-            )
+        def name(name, node):
+            if Import.From.basic(node, True):
+                return ValidationForm(
+                    name,
+                    condition=bool(node.module == name)
+                )
+            return not name
 
         def __new__(self, **kwargs):
             return ValidatorForm(self, **kwargs)
 
     class As(object):
         def basic(node, consideration):
-            return ValidationForm(
-                consideration,
-                condition=(bool(len(node.names) != 0) and
-                           Import.basic(node, True))
-            )
+            if Import.basic(node, True):
+                return ValidationForm(
+                    consideration,
+                    condition=any({name.asname for name in node.names})
+                )
+            return not consideration
 
-        def name(node, name, consideration):
-            return ValidationForm(
-                consideration,
-                condition=bool(name in [sub.asname for sub in node.names])
-            )
+        def name(name, node):
+            if Import.As.basic(node, True):
+                return ValidationForm(
+                    name,
+                    condition=bool(name in [sub.asname for sub in node.names])
+                )
+            return not name
 
         def __new__(self, **kwargs):
             return ValidatorForm(self, **kwargs)
@@ -95,13 +102,15 @@ class Assignment(object):
 
     class Operational_Augmentation(object):
         def basic(node, consideration):
-            return ValidationForm(
-                consideration,
-                condition=bool(type(node) is ast.AugAssign)
-            )
+            if Assignment.basic(node, True):
+                return ValidationForm(
+                    consideration,
+                    condition=(bool(type(node) is ast.AugAssign))
+                )
+            return not consideration
 
         def operation(node):
-            pass
+            raise NotImplementedError
 
         def __new__(self, **kwargs):
             return ValidatorForm(self, **kwargs)
@@ -119,17 +128,20 @@ class Assertion(object):
 
     class Error(object):
         def basic(node, consideration):
-            return ValidationForm(
-                consideration,
-                condition=(bool(node.msg is not None) and
-                           Assertion.basic(node, True))
-            )
+            if Assertion.basic(node, True):
+                return ValidationForm(
+                    consideration,
+                    condition=(bool(node.msg.s is not None))
+                )
+            return not consideration
 
-        def content(node, content, consideration):
-            return ValidationForm(
-                consideration,
-                condition=bool(content == node.msg)
-            )
+        def content(content, node):
+            if Assertion.Error.basic(node, True):
+                return ValidationForm(
+                    content,
+                    condition=bool(content == node.msg.s)
+                )
+            return not content
 
         def __new__(self, **kwargs):
             return ValidatorForm(self, **kwargs)
@@ -151,10 +163,11 @@ class Looping(object):
             )
         )
 
-    def for_(for_, node):
+    def for_(for_, node, knowledge):
         return ValidationForm(
             for_,
-            condition=bool(type(node) is ast.For)
+            condition=(bool(type(node) is ast.For) or
+                       Looping._comprehension(node, knowledge))
         )
 
     def while_(while_, node):
@@ -194,7 +207,7 @@ class Looping(object):
                     break
         return ValidationForm(
             with_break,
-            bool(with_break == break_presence)
+            bool(break_presence)
         )
 
     def with_simple_non_terminating_test(
@@ -213,16 +226,12 @@ class Looping(object):
             is_comparison = bool(type(node.test) is ast.Compare)
             try:
                 result = comparison_evaluator(node=node.test)
-            except NotImplementedError:
-                result = False
             except TypeError:
                 return False
             return bool(is_comparison and bool(result))
 
-        # Only comparators have a `test` method. By attempting to run
         # the test for a non-comparator node, we'd be raising an
         # AttributeError.
-        # if "test" in node.__dict__:
         if hasattr(node, "test"):
             constant_infinite = constant_test()
             comparison_infinite = comparison_test()
@@ -253,7 +262,7 @@ class Conditional(object):
                     return True
         return False
 
-    def parent_child_both_ifs(node):
+    def _parent_child_both_ifs(node):
         is_if_itself = Conditional._regular(node=node)
         parent_is_if = Conditional._regular(node=node._parent)
         return (is_if_itself and parent_is_if)
@@ -263,7 +272,7 @@ class Conditional(object):
             consideration,
             condition=(
                 (Conditional._regular(node=node) and
-                 not Conditional._parent_child_both_ifs(node=node)) or
+                    not Conditional._parent_child_both_ifs(node=node)) or
                 Conditional._expression(node=node) or
                 Conditional._comprehension(node=node, knowledge=knowledge)
             )
@@ -279,14 +288,7 @@ class Conditional(object):
                         elif_,
                         condition=bool(Conditional._regular(node.orelse[0]))
                     )
-                else:
-                    return (not elif_)
-        if (
-                Conditional.comprehension(node=node, knowledge=knowledge) or
-                Conditional.expression(node=node)
-        ):
-            return (not elif_)
-        return False
+        return (not elif_)
 
     def else_(else_, node, knowledge):
         if else_ is None:
@@ -304,11 +306,11 @@ class Conditional(object):
                 else:
                     current_node = current_node.orelse
             return bool(else_ is not last_else_test_is_if)
-        elif Conditional.expression(node=node):
+        elif Conditional._expression(node=node):
             if else_:
                 return bool(node.orelse is not None)
             return bool(node.orelse is None)
-        elif Conditional.comprehension(
+        elif Conditional._comprehension(
                 node=node, knowledge=knowledge):
             return (not else_)
         return False
@@ -335,11 +337,13 @@ class With(object):
 
     class As(object):
         def basic(node, consideration):
-            return ValidationForm(
-                consideration,
-                condition=(bool(len(node.items) != 0) and
-                           With.basic(node, True))
-            )
+            if With.basic(node, True):
+                return ValidationForm(
+                    consideration,
+                    condition=(any([item.optional_vars is not None
+                                    for item in node.items]))
+                )
+            return not consideration
 
         def name(node, name, consideration):
             return ValidationForm(
@@ -384,46 +388,81 @@ class Trying(object):
         )
 
     def finally_(finally_, node):
-        return ValidationForm(
-            finally_,
-            condition=bool(len(node.finalbody != 0))
-        )
+        # Can't use ValidationForm here because node.finalbody would return an
+        # AttributeError since it's being evaluated before being passed to
+        # `condition`
+        if finally_ is None:
+            return True
+        if Trying.basic(node, True):
+            validity = bool(len(node.finalbody) != 0)
+            if finally_:
+                return validity
+            return not validity
+        return (not finally_)
 
     def __new__(self, **kwargs):
         return ValidatorForm(self, **kwargs)
 
     class Except(object):
         def basic(node, consideration):
-            return ValidationForm(
-                consideration,
-                condition=(
-                    any([type(handler.type) in {ast.Call,
-                                                ast.Name,
-                                                ast.NameConstant}
-                         for handler in node.handlers]) and
-                    Trying.basic(node, True)
+            if consideration is None:
+                return True
+            if Trying.basic(node, True):
+                return ValidationForm(
+                    consideration,
+                    condition=(any([
+                        type(handler.type) in {
+                            ast.Call, ast.Name, ast.NameConstant
+                        } for handler in node.handlers
+                    ]))
                 )
-            )
+            return not consideration
 
         def type_(type_, node):
-            present_types = set([])
-            for handler in node.handlers:
-                if type(handler.type) is ast.Call:
-                    present_types.add(handler.type.func.id)
-                elif type(handler.type) in {ast.Name, ast.NameConstant}:
-                    present_types.add(handler.type.id)
-            return ValidationForm(
-                type_,
-                condition=bool(type_ in present_types)
-            )
-
-        def as_(as_, node):
-            return ValidationForm(
-                as_,
-                condition=bool(
-                    as_ in {handler.name for handler in node.handlers}
+            if type_ is None:
+                return True
+            if Trying.Except.basic(node, True):
+                present_types = set([])
+                for handler in node.handlers:
+                    if type(handler.type) is ast.Call:
+                        present_types.add(handler.type.func.id)
+                    elif type(handler.type) in {ast.Name, ast.NameConstant}:
+                        present_types.add(handler.type.id)
+                return ValidationForm(
+                    type_,
+                    condition=bool(type_.__name__ in present_types)
                 )
-            )
+            return not type_
+
+        def as_(as_, type_, node):
+            if as_ is None:
+                return True
+            if Trying.Except.basic(node, True):
+                if type_ is None:
+                    return ValidationForm(
+                        as_,
+                        condition=bool(
+                            as_ in {handler.name for handler in node.handlers}
+                        )
+                    )
+                for handler in node.handlers:
+                    if type(handler.type) is ast.Call:
+                        return ValidationForm(
+                            as_,
+                            condition=bool(
+                                (as_ == handler.name) and
+                                (type_.__name__ == handler.type.func.id)
+                            )
+                        )
+                    elif type(handler.type) in {ast.Name, ast.NameConstant}:
+                        return ValidationForm(
+                            as_,
+                            condition=bool(
+                                (as_ == handler.name) and
+                                (type_.__name__ == handler.type.id)
+                            )
+                        )
+            return not as_
 
         def __new__(self, **kwargs):
             return ValidatorForm(self, **kwargs)
@@ -437,7 +476,7 @@ class Raising(object):
         )
 
     def __new__(self, **kwargs):
-        return ValidationForm(self, **kwargs)
+        return ValidatorForm(self, **kwargs)
 
     class Error(object):
         def basic(node, consideration):
@@ -446,52 +485,74 @@ class Raising(object):
         def type_(type_, node):
             if type_ is None:
                 return True
-            if type(node.exc) is ast.Call:
-                return bool(type_.__name__ == node.exc.func.id)
-            elif type(node.exc) is ast.Name:
-                return bool(type_.__name__ == node.exc.id)
-            return False
+            if Raising.Error.basic(node, True):
+                if type(node.exc) is ast.Call:
+                    return bool(type_.__name__ == node.exc.func.id)
+                elif type(node.exc) is ast.Name:
+                    return bool(type_.__name__ == node.exc.id)
+            return not type_
 
-        def message(message, node):
+        def message(message, type_, node):
             if message is None:
                 return True
-            if type(node.exc) is ast.Call:
-                if bool(len(node.exc.args) == 0):
-                    return bool(message in {None, ""})
-                if type(node.exc.args[0]) is ast.Str:
-                    return bool(message == node.exc.args[0].s)
-                if type(node.exc.args[0]) is ast.Num:
-                    return bool(message == node.exc.args[0].n)
-            return False
+            if Raising.Error.basic(node, True):
+                if type(node.exc) is ast.Call:
+                    corresponding_type = (
+                        bool(node.exc.func.id == type_.__name__)
+                        if type_ is not None
+                        else True
+                    )
+                    if bool(len(node.exc.args) == 0):
+                        return (bool(message in {None, ""}) and
+                                corresponding_type)
+                    if type(node.exc.args[0]) is ast.Str:
+                        return (bool(message == node.exc.args[0].s) and
+                                corresponding_type)
+                    if type(node.exc.args[0]) is ast.Num:
+                        return (bool(message == node.exc.args[0].n) and
+                                corresponding_type)
+            return not message
 
         def __new__(self, **kwargs):
             return ValidatorForm(self, **kwargs)
 
     class Cause(object):
         def basic(node, consideration):
-            return ValidationForm(
-                consideration,
-                condition=(bool(node.case is not None) and
-                           Raising.basic(node, True))
+            if Raising.basic(node, True):
+                return ValidationForm(
+                    consideration,
+                    condition=bool(node.cause is not None)
                 )
+            return not consideration
 
-        def name(name, node):
+        def name(name, type_, message, node):
             if name is None:
                 return True
-            if type(node.cause) is ast.Name:
-                return bool(name == node.cause.id)
-            return False
+            if Raising.Cause.basic(node, True):
+                if type(node.cause) is ast.Name:
+                    corresponding = set([True])
+                    if message is not None:
+                        corresponding.add(
+                            Raising.Error.message(message, type_, node)
+                        )
+                    elif type_ is not None:
+                        corresponding.add(Raising.Error.type_(type_, node))
+                    return bool(name == node.cause.id) and all(corresponding)
+            return not name
 
         def __new__(self, **kwargs):
-            return ValidationForm(self, **kwargs)
+            return ValidatorForm(self, **kwargs)
 
 
 class Yielding(object):
     def _regular(node):
         return bool(type(node) is ast.Yield)
 
-    def in_expression(node):
-        return bool(type(node) is ast.GeneratorExp)
+    def in_expression(in_expression, node):
+        return ValidationForm(
+            in_expression,
+            condition=bool(type(node) is ast.GeneratorExp)
+        )
 
     def from_(from_, node):
         return ValidationForm(
@@ -503,9 +564,9 @@ class Yielding(object):
         return ValidationForm(
             consideration,
             condition=bool(
-                Yielding._regular(node=node) or
-                Yielding.in_expression(node=node) or
-                Yielding.from_(consideration, node)
+                Yielding._regular(node) or
+                Yielding.in_expression(True, node) or
+                Yielding.from_(True, node)
             )
         )
 
@@ -521,12 +582,14 @@ class Making_Global(object):
         )
 
     def name(name, node):
-        return ValidationForm(
-            name,
-            condition=bool(
-                name in {str(node_name) for node_name in node.names}
+        if Making_Global.basic(node, True):
+            return ValidationForm(
+                name,
+                condition=bool(
+                    name in {str(node_name) for node_name in node.names}
+                )
             )
-        )
+        return not name
 
     def __new__(self, **kwargs):
         return ValidatorForm(self, **kwargs)
@@ -540,12 +603,14 @@ class Making_Nonlocal(object):
         )
 
     def name(name, node):
-        return ValidationForm(
-            name,
-            condition=bool(
-                name in {str(node_name) for node_name in node.names}
+        if Making_Nonlocal.basic(node, name):
+            return ValidationForm(
+                name,
+                condition=bool(
+                    name in {str(node_name) for node_name in node.names}
+                )
             )
-        )
+        return not name
 
     def __new__(self, **kwargs):
         return ValidatorForm(self, **kwargs)
@@ -596,7 +661,7 @@ class Continuing(object):
     def basic(node, consideration):
         return ValidationForm(
             consideration,
-            condition=bool(type(node) is ast.Continuing)
+            condition=bool(type(node) is ast.Continue)
         )
 
     def __new__(self, **kwargs):

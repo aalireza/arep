@@ -3,7 +3,7 @@ import pytest
 
 
 def results_formatter(*results):
-    return [hg.core.Result(n, x, y) for n, x, y in results][0]
+    return [hg.utils.Result(n, x, y) for n, x, y in results][0]
 
 
 @pytest.mark.parametrize(('left', 'right'), [

@@ -1,4 +1,6 @@
-from higher_grep.core import Result
+from higher_grep.utils import Result
+from higher_grep.constraints import Action, Kind, Properties
+import pytest
 
 
 def results_formatter(coordinates, name):
@@ -12,3 +14,21 @@ def results_formatter(coordinates, name):
                 '_'.join(name.split('_')[1:]), result[0], result[1]
             ))
     return results
+
+
+@pytest.fixture
+def action():
+    instance = Action()
+    return instance
+
+
+@pytest.fixture
+def kind():
+    instance = Kind()
+    return instance
+
+
+@pytest.fixture
+def properties():
+    instance = Properties()
+    return instance

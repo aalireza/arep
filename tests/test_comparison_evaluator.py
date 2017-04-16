@@ -2,7 +2,7 @@ import higher_grep as hg
 import pytest
 
 
-ops = hg.core._ast_mapped_operators()
+ops = hg.utils._ast_mapped_operators()
 
 
 @pytest.mark.parametrize(('args', 'result'), [

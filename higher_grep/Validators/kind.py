@@ -1,4 +1,4 @@
-from higher_grep.Validators import ValidationForm, ValidatorForm
+from higher_grep.Validators.forms import ValidationForm, ValidatorForm
 import ast
 
 
