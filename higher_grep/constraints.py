@@ -220,7 +220,7 @@ class Kind(object):
             }
         },
         'STD_Types': {
-            'type': None
+            'type_': None
         },
         'Functions': {
             'name': None,
