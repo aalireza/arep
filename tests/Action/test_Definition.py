@@ -1,4 +1,4 @@
-from ..utils import results_formatter
+from ..utils import action, results_formatter
 from functools import partial
 import higher_grep as hg
 import pytest
@@ -18,6 +18,8 @@ def grepper():
     return engine
 
 
-def test_Definition(grepper):
-    grepper.add_constraint(hg.Action.Definition())
+def test_Definition(grepper, action):
+    action.reset()
+    action.Definition.consideration = True
+    grepper.add_constraint(action)
     assert set(grepper.get_all_results()) == all_results

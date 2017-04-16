@@ -1,4 +1,4 @@
-from ..utils import results_formatter
+from ..utils import action, results_formatter
 from functools import partial
 import higher_grep as hg
 import pytest
@@ -17,15 +17,21 @@ def grepper():
     return engine
 
 
-def test_Making_Global(grepper):
-    grepper.add_constraint(hg.Action.Making_Global())
-    assert all_results == set(grepper.get_all_results())
+def test_Making_Global(grepper, action):
+    action.reset()
+    action.Making_Global.consideration = True
+    grepper.add_constraint(action)
+    assert set(grepper.get_all_results()) == all_results
 
 
-@pytest.mark.parametrize(('_id', 'result'), [
+@pytest.mark.parametrize(('name', 'result'), [
     ('x', all_results),
     ('y', set([]))
 ])
-def test_id(grepper, _id, result):
-    grepper.add_constraint(hg.Action.Making_Global(_id=_id))
+@pytest.mark.parametrize(('consideration'), [True, None])
+def test_Making_Global_name(grepper, action, consideration, name, result):
+    action.reset()
+    action.Making_Global.name = name
+    action.Making_Global.consideration = consideration
+    grepper.add_constraint(action)
     assert set(grepper.get_all_results()) == results_formatter(result)

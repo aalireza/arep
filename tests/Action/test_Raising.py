@@ -1,4 +1,4 @@
-from ..utils import results_formatter
+from ..utils import action, results_formatter
 from functools import partial
 import higher_grep as hg
 import pytest
@@ -17,36 +17,85 @@ def grepper():
     return engine
 
 
-def test_Raising(grepper):
-    grepper.add_constraint(hg.Action.Raising())
+def test_Raising(grepper, action):
+    action.reset()
+    action.Raising.consideration = True
+    grepper.add_constraint(action)
     assert set(grepper.get_all_results()) == all_results
 
 
-@pytest.mark.parametrize(("_error_type", "result"), [
+@pytest.mark.parametrize(("type_", "result"), [
     (TypeError, {(5, 8)}),
     (Exception, {(3, 8), (10, 4)}),
     (SystemExit, {(12, 0)}),
     (AttributeError, set([]))
 ])
-def test_error_type(grepper, _error_type, result):
-    grepper.add_constraint(hg.Action.Raising(_error_type=_error_type))
+@pytest.mark.parametrize(('consideration'), [True, None])
+def test_Error_type(grepper, action, consideration, type_, result):
+    action.reset()
+    action.Raising.Error.type_ = type_
+    action.Raising.Error.consideration = consideration
+    grepper.add_constraint(action)
     assert set(grepper.get_all_results()) == results_formatter(result)
 
 
-@pytest.mark.parametrize(("_error_message", "result"), [
+@pytest.mark.parametrize(("message", "result"), [
     ("Something", {(3, 8)}),
     ("test", {(10, 4)}),
     ("Another test", set([]))
 ])
-def test_error_message(grepper, _error_message, result):
-    grepper.add_constraint(hg.Action.Raising(_error_message=_error_message))
+@pytest.mark.parametrize(('consideration'), [True, None])
+def test_Error_message(grepper, action, consideration, message, result):
+    action.reset()
+    action.Raising.Error.message = message
+    action.Raising.Error.consideration = consideration
+    grepper.add_constraint(action)
     assert set(grepper.get_all_results()) == results_formatter(result)
 
 
-@pytest.mark.parametrize(("_cause", "result"), [
+@pytest.mark.parametrize(("message"), ["Something", "test", "spam"])
+@pytest.mark.parametrize(("type_"), [Exception, TypeError])
+def test_Error_message_type(grepper, action, message, type_):
+    action.reset()
+    action.Raising.Error.type_ = type_
+    action.Raising.Error.message = message
+    grepper.add_constraint(action)
+    results = set([])
+    if bool(type_ is Exception):
+        if (message == "Something"):
+            results = results_formatter({(3, 8)})
+        elif (message == "test"):
+            results = results_formatter({(10, 4)})
+    assert set(grepper.get_all_results()) == results_formatter(results)
+
+@pytest.mark.parametrize(("name", "result"), [
     ("e", {(10, 4)}),
     ("d", set([]))
 ])
-def test_cause(grepper, _cause, result):
-    grepper.add_constraint(hg.Action.Raising(_cause=_cause))
+@pytest.mark.parametrize(('consideration'), [True, None])
+def test_Cause_name(grepper, action, consideration, name, result):
+    action.reset()
+    action.Raising.Cause.name = name
+    action.Raising.Cause.consideration = consideration
+    grepper.add_constraint(action)
     assert set(grepper.get_all_results()) == results_formatter(result)
+
+
+@pytest.mark.parametrize(('type_'), [Exception, SystemExit, None])
+@pytest.mark.parametrize(('message'), ["test", "Something", None])
+@pytest.mark.parametrize(('name'), ["e", "f"])
+def test_Cause_name_Error_message_type(grepper, action, name, message,
+                                       type_):
+    action.reset()
+    action.Raising.Cause.name = name
+    action.Raising.Error.type_ = type_
+    action.Raising.Error.message = message
+    grepper.add_constraint(action)
+    results = results_formatter({(10, 4)})
+    if (
+            (type_ not in {Exception, None}) or
+            (message not in {"test", None}) or
+            (name != 'e')
+    ):
+        results = set([])
+    assert set(grepper.get_all_results()) == results

@@ -1,4 +1,4 @@
-from ..utils import results_formatter
+from ..utils import action, results_formatter
 from functools import partial
 import higher_grep as hg
 import pytest
@@ -29,29 +29,24 @@ def grepper():
     return engine
 
 
-def test_Yielding(grepper):
-    grepper.add_constraint(hg.Action.Yielding())
-    assert set(grepper.get_all_results()) == all_results
-
-
-@pytest.mark.parametrize(('_in_comprehension'), [True, False])
-def test_in_comprehension(grepper, _in_comprehension):
-    grepper.add_constraint(hg.Action.Yielding(
-        _in_comprehension=_in_comprehension))
-    if _in_comprehension:
-        assert results_in_comprehension == set(grepper.get_all_results())
-    else:
-        assert set(grepper.get_all_results()) == (
-            all_results - results_in_comprehension
-        )
-
-
-@pytest.mark.parametrize(('_yield_from'), [True, False])
-def test_yield_from(grepper, _yield_from):
-    grepper.add_constraint(hg.Action.Yielding(_yield_from=_yield_from))
-    if _yield_from:
-        assert set(grepper.get_all_results()) == results_yield_from
-    else:
-        assert set(grepper.get_all_results()) == (
-            all_results - results_yield_from
-        )
+@pytest.mark.parametrize(('in_expression'), [True, False, None])
+@pytest.mark.parametrize(('from_'), [True, False, None])
+@pytest.mark.parametrize(('consideration'), [True, None])
+def test_Yielding(grepper, action, consideration, from_, in_expression):
+    if all([consideration, from_, in_expression]):
+        action.reset()
+        action.Yielding.in_expression = in_expression
+        action.Yielding.from_ = from_
+        action.Yielding.consideration = consideration
+        grepper.add_constraint(action)
+        if consideration is not False:
+            results = all_results.copy()
+        if from_:
+            results &= results_yield_from
+        elif from_ is False:
+            results -= results_yield_from
+        if in_expression:
+            results &= results_in_comprehension
+        elif in_expression is False:
+            results -= results_in_comprehension
+        assert set(grepper.get_all_results()) == results

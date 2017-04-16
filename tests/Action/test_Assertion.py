@@ -1,4 +1,4 @@
-from ..utils import results_formatter
+from ..utils import action, results_formatter
 from functools import partial
 import higher_grep as hg
 import pytest
@@ -16,17 +16,31 @@ def grepper():
     return engine
 
 
-def test_Assertion(grepper):
-    grepper.add_constraint(hg.Action.Assertion())
-    assert set(grepper.get_all_results()) == all_results
+@pytest.mark.parametrize(('error'), [True, False, None])
+@pytest.mark.parametrize(('assertion'), [True, False, None])
+def test_Assertion(grepper, action, error, assertion):
+    action.reset()
+    results = set()
+    if any([error, assertion]):
+        action.Assertion.consideration = assertion
+        action.Assertion.Error.consideration = error
+        if assertion is not False:
+            results = all_results.copy()
+        if error:
+            results &= results_with_msg
+        elif error is False:
+            results -= results_with_msg
+        grepper.add_constraint(action)
+        assert set(grepper.get_all_results()) == results_formatter(results)
 
 
-@pytest.mark.parametrize(("is_sought"), [True, False])
-def test_Assertion_with_error_msg(grepper, is_sought):
-    grepper.add_constraint(hg.Action.Assertion(_with_error_msg=is_sought))
-    if is_sought:
-        assert set(grepper.get_all_results()) == results_with_msg
-    else:
-        assert set(grepper.get_all_results()) == (
-            all_results - results_with_msg
-        )
+@pytest.mark.parametrize(("msg", "result"), [
+    ("test", {(2, 0)}),
+    ("nested test", {(5, 4)}),
+    ("not there", {})
+])
+def test_Assertion_with_error_msg(grepper, action, msg, result):
+    action.reset()
+    action.Assertion.Error.content = msg
+    grepper.add_constraint(action)
+    assert set(grepper.get_all_results()) == results_formatter(result)

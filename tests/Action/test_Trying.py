@@ -1,4 +1,4 @@
-from ..utils import results_formatter
+from ..utils import action, results_formatter
 from functools import partial
 import higher_grep as hg
 import pytest
@@ -23,37 +23,58 @@ def grepper():
     return engine
 
 
-def test_Trying(grepper):
-    grepper.add_constraint(hg.Action.Trying())
-    assert set(grepper.get_all_results()) == all_results
+@pytest.mark.parametrize(('finally_'), [True, False, None])
+@pytest.mark.parametrize(('consideration'), [True, None])
+def test_Trying(grepper, action, consideration, finally_):
+    if any([consideration, finally_]):
+        action.reset()
+        action.Trying.finally_ = finally_
+        action.Trying.consideration = consideration
+        grepper.add_constraint(action)
+        results = all_results.copy()
+        if finally_:
+            results &= results_with_finally
+        elif finally_ is False:
+            results -= results_with_finally
+        assert set(grepper.get_all_results()) == results
 
 
-@pytest.mark.parametrize(('_with_except_list', 'result'), [
+@pytest.mark.parametrize(('type_', 'result'), [
     (IndexError, {(2, 0), (7, 0)}),
-    ([IndexError, AttributeError], {(7, 0)}),
     (AttributeError, {(7, 0)}),
     (Exception, {(17, 4)})
 ])
-def test_with_except_list(grepper, _with_except_list, result):
-    grepper.add_constraint(hg.Action.Trying(
-        _with_except_list=_with_except_list))
+@pytest.mark.parametrize(('consideration'), [True, None])
+def test_Trying_Except_type(grepper, action, consideration, type_, result):
+    action.reset()
+    action.Trying.Except.type_ = type_
+    action.Trying.Except.consideration = consideration
+    grepper.add_constraint(action)
     assert set(grepper.get_all_results()) == results_formatter(result)
 
 
-@pytest.mark.parametrize(('_with_except_as_list', 'result'), [
+@pytest.mark.parametrize(('as_', 'result'), [
     ('e', results_with_finally),
     ('z', set([]))
 ])
-def test_except_as_list(grepper, _with_except_as_list, result):
-    grepper.add_constraint(hg.Action.Trying(
-        _with_except_as_list=_with_except_as_list))
+@pytest.mark.parametrize(('consideration'), [True, None])
+def test_Trying_Except_as(grepper, action, consideration, as_, result):
+    action.reset()
+    action.Trying.Except.as_ = as_
+    action.Trying.Except.consideration = consideration
+    grepper.add_constraint(action)
     assert set(grepper.get_all_results()) == results_formatter(result)
 
-
-@pytest.mark.parametrize(('_with_finally', 'result'), [
-    (True, {(7, 0)}),
-    (False, (all_results - results_formatter({(7, 0)})))
-])
-def test_with_finally(grepper, _with_finally, result):
-    grepper.add_constraint(hg.Action.Trying(_with_finally=_with_finally))
-    assert set(grepper.get_all_results()) == results_formatter(result)
+@pytest.mark.parametrize(('type_'), [IndexError, AttributeError, Exception])
+@pytest.mark.parametrize(('as_'), ['e', 'z'])
+@pytest.mark.parametrize(('consideration'), [True, None])
+def test_Trying_Except_type_as(grepper, action, consideration, type_, as_):
+    action.reset()
+    action.Trying.Except.type_ = type_
+    action.Trying.Except.as_ = as_
+    action.Trying.Except.consideration = consideration
+    grepper.add_constraint(action)
+    results = set([])
+    if (type_ is IndexError) and (as_ == 'e'):
+        results = results_with_finally
+    assert set(grepper.get_all_results()) == results

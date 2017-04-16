@@ -1,4 +1,4 @@
-from ..utils import results_formatter
+from ..utils import action, results_formatter
 from functools import partial
 import higher_grep as hg
 import pytest
@@ -17,6 +17,8 @@ def grepper():
     return engine
 
 
-def test_Deletion(grepper):
-    grepper.add_constraint(hg.Action.Deletion())
+def test_Deletion(grepper, action):
+    action.reset()
+    action.Deletion.consideration = True
+    grepper.add_constraint(action)
     assert set(grepper.get_all_results()) == all_results

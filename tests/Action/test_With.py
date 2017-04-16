@@ -1,4 +1,4 @@
-from ..utils import results_formatter
+from ..utils import action, results_formatter
 from functools import partial
 import higher_grep as hg
 import pytest
@@ -17,15 +17,26 @@ def grepper():
     return engine
 
 
-def test_With(grepper):
-    grepper.add_constraint(hg.Action.With())
+def test_With(grepper, action):
+    action.reset()
+    action.With.consideration = True
+    grepper.add_constraint(action)
     assert set(grepper.get_all_results()) == all_results
 
 
-@pytest.mark.parametrize(('_as', 'result'), [
+def test_With_As(grepper, action):
+    action.reset()
+    action.With.As.consideration = True
+    grepper.add_constraint(action)
+    assert set(grepper.get_all_results()) == results_formatter({(1, 0)})
+
+
+@pytest.mark.parametrize(('name', 'result'), [
     ('f', {(1, 0)}),
     ('g', set([]))
 ])
-def test_with_as(grepper, _as, result):
-    grepper.add_constraint(hg.Action.With(_as=_as))
+def test_With_As_name(grepper, action, name, result):
+    action.reset()
+    action.With.As.name = name
+    grepper.add_constraint(action)
     assert set(grepper.get_all_results()) == results_formatter(result)

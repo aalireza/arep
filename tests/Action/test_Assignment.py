@@ -1,4 +1,4 @@
-from ..utils import results_formatter
+from ..utils import action, results_formatter
 from functools import partial
 import higher_grep as hg
 import pytest
@@ -21,17 +21,19 @@ def grepper():
     return engine
 
 
-def test_Assignment(grepper):
-    grepper.add_constraint(hg.Action.Assignment())
-    assert set(grepper.get_all_results()) == all_results
-
-
-@pytest.mark.parametrize(('aug_status'), [True, False])
-def test_Assignment_aug(grepper, aug_status):
-    grepper.add_constraint(hg.Action.Assignment(_with_op=aug_status))
-    if aug_status:
-        assert set(grepper.get_all_results()) == aug_assign_results
-    else:
-        assert set(grepper.get_all_results()) == (
-            all_results - aug_assign_results
-        )
+@pytest.mark.parametrize(('AugAssign'), [True, False, None])
+@pytest.mark.parametrize(('Assign'), [True, False, None])
+def test_Assignment(grepper, action, Assign, AugAssign):
+    action.reset()
+    results = set()
+    if any([Assign, AugAssign]):
+        action.Assignment.consideration = Assign
+        action.Assignment.Operational_Augmentation.consideration = AugAssign
+        if Assign is not False:
+            results = all_results.copy()
+        if AugAssign:
+            results &= aug_assign_results
+        elif AugAssign is False:
+            results -= aug_assign_results
+        grepper.add_constraint(action)
+        assert set(grepper.get_all_results()) == results

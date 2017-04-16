@@ -1,4 +1,4 @@
-from ..utils import results_formatter
+from ..utils import action, results_formatter
 from functools import partial
 import higher_grep as hg
 import pytest
@@ -25,35 +25,71 @@ def grepper():
     return engine
 
 
-def test_import(grepper):
-    grepper.add_constraint(hg.Action.Import())
-    assert set(grepper.get_all_results()) == all_results
+@pytest.mark.parametrize(('As'), [True, False, None])
+@pytest.mark.parametrize(('From'), [True, False, None])
+@pytest.mark.parametrize(('Import'), [True, False, None])
+def test_Import(grepper, action, Import, From, As):
+    action.reset()
+    results = set()
+    if any({Import, From, As}):
+        action.Import.consideration = Import
+        action.Import.From.consideration = From
+        action.Import.As.consideration = As
+        if Import is not False:
+            results = all_results.copy()
+        if From:
+            results &= results_with_from
+        elif From is False:
+            results -= results_with_from
+        if As:
+            results &= results_with_as
+        elif As is False:
+            results -= results_with_as
+        grepper.add_constraint(action)
+        assert set(grepper.get_all_results()) == results
 
 
-@pytest.mark.parametrize(('_from_value'), [True, False])
-def test_import_from(grepper, _from_value):
-    grepper.add_constraint(hg.Action.Import(_from=_from_value))
-    obtained_results = set(grepper.get_all_results())
-    if _from_value:
-        assert obtained_results == results_with_from
-    else:
-        assert obtained_results == (all_results - results_with_from)
-
-
-@pytest.mark.parametrize(('_id', 'result'), [
+@pytest.mark.parametrize(('name', 'result'), [
+    (None, all_results),
     ('math', {(1, 0)}),
     ('Popen', {(2, 0)}),
     ('sys', {(15, 4)})
 ])
-def test_import_id(grepper, _id, result):
-    grepper.add_constraint(hg.Action.Import(_id=_id))
+def test_Import_name(grepper, action, name, result):
+    action.reset()
+    action.Import.name = name
+    grepper.add_constraint(action)
     assert set(grepper.get_all_results()) == results_formatter(result)
 
 
-@pytest.mark.parametrize(('_from_id', 'result'), [
+@pytest.mark.parametrize(('From_consideration'), [True, None])
+@pytest.mark.parametrize(('From_name', 'results'), [
+    (None, results_with_from),
     ('subprocess', {(2, 0)}),
-    ('ast', {(3, 0)}),
+    ('ast', {(3, 0)})
 ])
-def test_from_id(grepper, _from_id, result):
-    grepper.add_constraint(hg.Action.Import(_from=True, _from_id=_from_id))
-    assert set(grepper.get_all_results()) == results_formatter(result)
+def test_Import_From(grepper, action,
+                     results, From_name, From_consideration):
+    action.reset()
+    action.Import.From.consideration = (
+        True
+        if (From_name is None) and (From_consideration) is None
+        else From_consideration
+    )
+    action.Import.From.name = From_name
+    grepper.add_constraint(action)
+    obtained_results = set(grepper.get_all_results())
+    assert obtained_results == results_formatter(results)
+
+
+@pytest.mark.parametrize(('As_name', 'results'), [
+    ('popen', {(2, 0)}),
+    ('math', {}),
+    ('ast', {}),
+    ('cpickle', {(4, 0)})
+])
+def test_Import_As_name(grepper, action, As_name, results):
+    action.reset()
+    action.Import.As.name = As_name
+    grepper.add_constraint(action)
+    assert set(grepper.get_all_results()) == results_formatter(results)

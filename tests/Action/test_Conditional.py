@@ -1,4 +1,4 @@
-from ..utils import results_formatter
+from ..utils import action, results_formatter
 from functools import partial
 import higher_grep as hg
 import pytest
@@ -36,63 +36,31 @@ def grepper():
     return engine
 
 
-def test_Conditional(grepper):
-    grepper.add_constraint(hg.Action.Conditional())
-    assert set(grepper.get_all_results()) == all_results
-
-
-@pytest.mark.parametrize(('_with_elif'), [True, False])
-def test_with_elif(grepper, _with_elif):
-    grepper.add_constraint(hg.Action.Conditional(_with_elif=_with_elif))
-    if _with_elif:
-        assert set(grepper.get_all_results()) == results_with_elif
-    else:
-        assert set(grepper.get_all_results()) == (
-            all_results - results_with_elif
-        )
-
-
-@pytest.mark.parametrize(('_with_else'), [True, False])
-def test_with_else(grepper, _with_else):
-    grepper.add_constraint(hg.Action.Conditional(_with_else=_with_else))
-    if _with_else:
-        assert set(grepper.get_all_results()) == results_with_else
-    else:
-        assert set(grepper.get_all_results()) == (
-            all_results - results_with_else
-        )
-
-
-@pytest.mark.parametrize(('_is_ifexp'), [True, False])
-def test_is_ifexp(grepper, _is_ifexp):
-    grepper.add_constraint(hg.Action.Conditional(_is_ifexp=_is_ifexp))
-    if _is_ifexp:
-        assert set(grepper.get_all_results()) == results_is_ifexp
-    else:
-        assert set(grepper.get_all_results()) == (
-            all_results - results_is_ifexp
-        )
-
-
-@pytest.mark.parametrize(('_with_elif'), [True, False, None])
-@pytest.mark.parametrize(('_with_else'), [True, False, None])
-@pytest.mark.parametrize(('_is_ifexp'), [True, False, None])
-def test_combo(grepper, _with_elif, _with_else, _is_ifexp):
-    grepper.add_constraint(hg.Action.Conditional(
-        _with_elif=_with_elif, _with_else=_with_else, _is_ifexp=_is_ifexp))
-    obtained_results = set(grepper.get_all_results())
-    if _is_ifexp is None:
-        target_results = all_results.copy()
-    elif _is_ifexp is True:
-        target_results = results_is_ifexp.copy()
-    elif _is_ifexp is False:
-        target_results = (all_results - results_is_ifexp)
-    if _with_elif is True:
-        target_results &= results_with_elif
-    elif _with_elif is False:
-        target_results -= results_with_elif
-    if _with_else is True:
-        target_results &= results_with_else
-    elif _with_else is False:
-        target_results -= results_with_else
-    assert obtained_results == target_results
+@pytest.mark.parametrize(('elif_'), [True, False, None])
+@pytest.mark.parametrize(('else_'), [True, False, None])
+@pytest.mark.parametrize(('ifexp'), [True, False, None])
+@pytest.mark.parametrize(('consideration'), [True, None])
+def test_Conditional(grepper, action, consideration, elif_, else_, ifexp):
+    if any([consideration, elif_, else_, ifexp]):
+        action.reset()
+        action.Conditional.consideration = consideration
+        action.Conditional.else_ = else_
+        action.Conditional.elif_ = elif_
+        action.Conditional.ifexp = ifexp
+        grepper.add_constraint(action)
+        obtained_results = set(grepper.get_all_results())
+        if ifexp is None:
+            target_results = all_results.copy()
+        elif ifexp is True:
+            target_results = results_is_ifexp.copy()
+        elif ifexp is False:
+            target_results = (all_results - results_is_ifexp)
+        if elif_ is True:
+            target_results &= results_with_elif
+        elif elif_ is False:
+            target_results -= results_with_elif
+        if else_ is True:
+            target_results &= results_with_else
+        elif else_ is False:
+            target_results -= results_with_else
+        assert obtained_results == target_results
