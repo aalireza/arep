@@ -1,70 +1,84 @@
 from higher_grep.Validators.forms import ValidationForm, ValidatorForm
+from higher_grep.Validators import action
 import ast
 
 
 class Variables(object):
 
     def _regular(node):
-        # Add limitation
         return bool(type(node) is ast.Name)
 
-    def is_argument(node, consideration):
-        return ValidationForm(
-            consideration,
-            condition=bool(type(node) is ast.arg)
-        )
+    def _argument(node):
+        return bool(type(node) is ast.arg)
 
-    def is_attribute(node, consideration):
-        return ValidationForm(
-            consideration,
-            condition=bool(type(node) is ast.Attribute)
-        )
+    def _attribute(node):
+        return (Variables._regular(node) and
+                bool(type(node._parent) is ast.Attribute))
 
-    def _builtin_filtering(node, knowledge):
-        if Variables.argument(node=node):
-            return bool(node.arg not in knowledge['builtins']['all'])
-        try:
-            return bool(node.id not in knowledge['builtins']['all'])
-        except AttributeError:
-            return True
+    def _calling_filter(node):
+        if action.Call.basic(node._parent, True):
+            if node._parent.func == node:
+                return False
+            if type(node._parent) is ast.arguments:
+                return ValidationForm(
+                    True,
+                    condition=bool(node in node._parent.args)
+                )
+        return True
 
-    def _function_filtering(node):
-        parent_node = node._parent
-        try:
-            return (bool(node != parent_node.func))
-        except AttributeError:
-            return True
-
-    def _class_base_filtering(node):
-        try:
-            return (bool(node not in node._parent.bases))
-        except AttributeError:
-            return True
-
-    def _class_method_filtering(node, knowledge):
-        try:
-            return not bool(node in knowledge['Function'])
-        except AttributeError:
-            return True
+    def _class_base_filter(node):
+        return bool(type(node._parent) is not ast.ClassDef)
 
     def basic(node, consideration, knowledge):
-        return bool(
-            any([Variables._regular(node),
-                 Variables.is_argument(node, consideration),
-                 Variables.is_attribute(node, consideration)]) and
-            Variables._builtin_filtering(node, knowledge) and
-            Variables._function_filtering(node) and
-            Variables._class_base_filtering(node) and
-            Variables._class_method_filtering(node, knowledge)
+        return ValidationForm(
+            consideration,
+            condition=bool(
+                any([Variables._regular(node),
+                     Variables._attribute(node),
+                     Variables._argument(node)]) and
+                Variables._calling_filter(node) and
+                Variables._class_base_filter(node)
             )
+        )
 
-    def name(name, node):
-        if Variables.is_argument(node, consideration=True):
-            return bool(name == node.arg)
+    def is_attribute(is_attribute, node, knowledge):
+        if Variables.basic(node, True, knowledge):
+            if Variables._attribute(node):
+                return ValidationForm(
+                    is_attribute,
+                    condition=bool(
+                        node._parent.attr not in knowledge['Function']
+                    )
+                )
+        return not is_attribute
+
+    def is_argument(is_argument, node, knowledge):
+        if Variables.basic(node, True, knowledge):
+            if Variables._argument(node):
+                return ValidationForm(
+                    is_argument,
+                    condition=Variables._argument(node)
+                )
+        return not is_argument
+
+    def name(name, node, knowledge):
+        if node is None:
+            return True
+        if Variables.is_argument(name, node, knowledge):
+            return ValidationForm(
+                name,
+                condition=bool(name == node.arg)
+            )
+        if Variables.is_attribute(name, node, knowledge):
+            return ValidationForm(
+                name,
+                condition=(bool(node._parent.attr == name) or
+                           bool(node.id == name))
+            )
         try:
             return bool(name == node.id)
         except AttributeError:
-            return False
+            not name
 
     def __new__(self, **kwargs):
         return ValidatorForm(self, **kwargs)
