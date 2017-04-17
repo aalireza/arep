@@ -2,6 +2,7 @@ from collections import defaultdict, namedtuple
 from functools import partial
 from inspect import getfullargspec as spec
 import ast
+import builtins
 import keyword
 import sys
 
@@ -43,7 +44,7 @@ def Knowledge_template():
         for builtin_kind_set in knowledge['builtins']['kinds'].values()
         for builtin_type in builtin_kind_set
     }
-    knowledge['builtins']['all'] = (set(dir(__builtins__)) |
+    knowledge['builtins']['all'] = (set(dir(builtins)) |
                                     knowledge['builtins']['keywords'])
     return knowledge
 
