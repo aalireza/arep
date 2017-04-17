@@ -25,9 +25,13 @@ def ValidatorForm(cls, **kwargs):
         )
 
 
-def ValidationForm(consideration, condition):
+def ValidationForm(consideration, condition, consideration_types={}):
     if consideration is None:
         return True
-    elif consideration:
+    elif (
+            consideration and
+            (bool(type(consideration) in consideration_types)
+             if consideration_types else True)
+    ):
         return condition
     return not condition
