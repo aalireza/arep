@@ -50,7 +50,9 @@ def Knowledge_template():
 
 def update_knowledge_template(
         ast_tree_with_parent_pointers, knowledge_template, results_name,
-        _with_classes=True, _with_funcs=True):
+        _with_classes=True, _with_funcs=True, _with_decorators=True,
+        _with_class_methods=True):
+
     def func_name_checker(node):
         if type(node) is ast.FunctionDef:
             return ('Function', node.name)
@@ -64,15 +66,43 @@ def update_knowledge_template(
             return ('Class', node.name)
         return False
 
+    def decorator_name_checker(node):
+        if type(node) is ast.Name:
+            if hasattr(node._parent, "decorator_list"):
+                if node in node._parent.decorator_list:
+                    return ('Decorator', node.id)
+
+    def class_method_name_checker(node):
+
+        def contained_in_class(node):
+            if hasattr(node, "_parent"):
+                if type(node._parent) is ast.ClassDef:
+                    return True
+                if type(node._parent) in {ast.FunctionDef, ast.Lambda}:
+                    return False
+                return contained_in_class(node._parent)
+            return False
+
+        if type(node) in {ast.Lambda, ast.FunctionDef}:
+            if contained_in_class(node):
+                return ('Method', (ast.Lambda
+                                   if type(node) is ast.Lambda
+                                   else node.name))
+        return False
+
     name_kinds = {
-        'Function': defaultdict(list),
-        'Class': defaultdict(list),
+        key: defaultdict(list)
+        for key in {'Function', 'Class', 'Decorator', 'Method'}
     }
     name_checkers = set([])
     if _with_funcs:
         name_checkers.add(func_name_checker)
     if _with_classes:
         name_checkers.add(class_name_checker)
+    if _with_decorators:
+        name_checkers.add(decorator_name_checker)
+    if _with_class_methods:
+        name_checkers.add(class_method_name_checker)
     for node in ast.walk(ast_tree_with_parent_pointers):
         for name_checker in name_checkers:
             try:
