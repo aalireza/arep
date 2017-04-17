@@ -225,11 +225,12 @@ class Kind(object):
         'Functions': {
             'name': None,
             'Lambda': {
-                'immediately_called': None
+                'immediately_called': None,
             },
-            'Decorator': {
+            'Decorators': {
                 'name': None
-            }
+            },
+            'is_builtin': None,
         },
         'Classes': {
             'name': None,
