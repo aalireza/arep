@@ -108,13 +108,7 @@ def update_knowledge_template(
             try:
                 result = name_checker(node)
                 if result:
-                    name_kinds[result[0]][result[1]].append(
-                        Result(
-                            name=results_name,
-                            line=node.lineno,
-                            column=node.col_offset
-                        )
-                    )
+                    name_kinds[result[0]][result[1]].append(node)
             except AttributeError:
                 pass
 
