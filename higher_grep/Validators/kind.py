@@ -266,20 +266,35 @@ class Generators(object):
 
 
 class Comprehensions(object):
-    def basic(node, consideration):
-        raise NotImplementedError
+    def basic(node, consideration, knowledge):
+        return ValidationForm(
+            consideration,
+            condition=bool(type(node) in knowledge['comprehension_forms'])
+        )
 
     def of_list(of_list, node):
-        raise NotImplementedError
+        return ValidationForm(
+            of_list,
+            condition=bool(type(node) is ast.ListComp)
+        )
 
     def of_set(of_set, node):
-        raise NotImplementedError
+        return ValidationForm(
+            of_set,
+            condition=bool(type(node) is ast.SetComp)
+        )
 
     def of_dict(of_dict, node):
-        raise NotImplementedError
+        return ValidationForm(
+            of_dict,
+            condition=bool(type(node) is ast.DictComp)
+        )
 
     def of_gen(of_gen, node):
-        raise NotImplementedError
+        return ValidationForm(
+            of_gen,
+            condition=bool(type(node) is ast.GeneratorExp)
+        )
 
     def __new__(self, **kwargs):
         return ValidatorForm(self, **kwargs)
