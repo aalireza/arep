@@ -181,6 +181,9 @@ class Functions(object):
             )
         return not is_builtin
 
+    def name(name, node, knowledge):
+        raise NotImplementedError
+
     def __new__(self, **kwargs):
         return ValidatorForm(self, **kwargs)
 
@@ -226,6 +229,30 @@ class Functions(object):
                     )
                 )
             return not name
+
+        def __new__(self, **kwargs):
+            return ValidatorForm(self, **kwargs)
+
+    class Arguments(object):
+        def basic(node, consideration, knowledge):
+            raise NotImplementedError
+
+        def arity(arity, node, knowledge):
+            raise NotImplementedError
+
+        def argument_list(argument_list, node, knowledge):
+            raise NotImplementedError
+
+        def keyword_list(keyword_list, node, knowledge):
+            raise NotImplementedError
+
+        def has_unfixed_number_of_arguments(
+                has_unfixed_number_of_arguments, node, knowledge):
+            raise NotImplementedError
+
+        def has_unfixed_number_of_keywords(
+                has_unfixed_number_of_keywords, node, knowledge):
+            raise NotImplementedError
 
         def __new__(self, **kwargs):
             return ValidatorForm(self, **kwargs)
