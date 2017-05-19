@@ -182,7 +182,31 @@ class Functions(object):
         return not is_builtin
 
     def name(name, node, knowledge):
-        raise NotImplementedError
+        if name is None:
+            return True
+        if (
+                Functions.basic(node, True, knowledge) and
+                Functions.Lambda.basic(node, False, knowledge)
+        ):
+            return ValidationForm(
+                name,
+                condition=bool(name == (
+                    node.name if Functions._regular_def(node, knowledge)
+                    else node.id if Functions._regular_call(node, knowledge)
+                    else not name))
+            )
+        if (
+                Functions.Lambda.basic(node, True, knowledge) and
+                Functions.Lambda.immediately_called(False, node, knowledge) and
+                bool(type(node._parent) is ast.Assign)
+        ):
+            return ValidationForm(
+                name,
+                condition=bool(name in [
+                    target.id for target in node._parent.targets
+                ])
+            )
+        return not name
 
     def __new__(self, **kwargs):
         return ValidatorForm(self, **kwargs)

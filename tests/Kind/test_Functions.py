@@ -78,6 +78,21 @@ def test_Functions(grepper, kind, consideration, is_builtin,
         assert set(grepper.get_all_results()) == results
 
 
+@pytest.mark.parametrize(('name', 'results'), [
+    ('f', {(1, 0), (5, 4), (8, 15), (29, 16)}),
+    ('g', {(4, 0), (8, 17)}),
+    ('l', {(11, 4)}),
+    ('b', {}),
+    ('print', {(14, 4)}),
+    ('nonsense', {})
+])
+def test_Functions_name(grepper, kind, name, results):
+    kind.reset()
+    kind.Functions.name = name
+    grepper.add_constraint(kind)
+    assert set(grepper.get_all_results()) == results_formatter(results)
+
+
 @pytest.mark.parametrize(('name', 'result'), [
     ('property', {(23, 5)}),
     ('not there', set([]))
