@@ -231,14 +231,6 @@ class Kind(object):
             'Decorators': {
                 'name': None
             },
-            'Arguments': {
-                'arity': None,
-                'argument_list': None,
-                'keyword_list': None,
-                'has_unfixed_number_of_arguments': None,
-                'has_unfixed_number_of_keywords': None
-
-            },
         },
         'Classes': {
             'name': None,

@@ -258,6 +258,7 @@ class Functions(object):
             return ValidatorForm(self, **kwargs)
 
     class Arguments(object):
+
         def basic(node, consideration, knowledge):
             raise NotImplementedError
 
