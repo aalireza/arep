@@ -108,8 +108,7 @@ def update_knowledge_template(
         for name_checker in name_checkers:
             try:
                 result = name_checker(node)
-                if result:
-                    name_kinds[result[0]][result[1]].append(node)
+                name_kinds[result[0]][result[1]].append(node)
             except AttributeError:
                 pass
 
@@ -136,6 +135,17 @@ def count_arity(func):
     ):
         return float("inf")
     return len(spec(func).args)
+
+
+def count_arity_ast(node):
+    if type(node) in {ast.Lambda, ast.FunctionDef}:
+        if any(
+                [getattr(node.arguments, cat) is not None
+                 for cat in {"vararg", "kwarg"}]
+        ):
+            return float("inf")
+        return len(node.arguments.args)
+    return None
 
 
 def _ast_mapped_operators():
