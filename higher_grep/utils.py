@@ -108,7 +108,8 @@ def update_knowledge_template(
         for name_checker in name_checkers:
             try:
                 result = name_checker(node)
-                name_kinds[result[0]][result[1]].append(node)
+                if result:
+                    name_kinds[result[0]][result[1]].append(node)
             except AttributeError:
                 pass
 

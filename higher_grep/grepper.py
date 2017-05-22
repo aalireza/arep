@@ -12,18 +12,15 @@ class Grepper(object):
     def __init__(self, source_abs_path):
         assert os.path.exists(source_abs_path), "Path doesn't exist"
         with open(source_abs_path, 'r') as f:
-            try:
-                self.__ast = establish_parent_link(ast.parse(f.read()))
-                self.__source = f
-                self.__name = os.path.basename(source_abs_path)
-                self.__knowledge_template = update_knowledge_template(
-                    ast_tree_with_parent_pointers=self.__ast,
-                    knowledge_template=Knowledge_template(),
-                    results_name=self.__name
-                )
-                self.constraint_list = list()
-            except TypeError as e:
-                print(e)
+            self.__ast = establish_parent_link(ast.parse(f.read()))
+            self.__source = f
+            self.__name = os.path.basename(source_abs_path)
+            self.__knowledge_template = update_knowledge_template(
+                ast_tree_with_parent_pointers=self.__ast,
+                knowledge_template=Knowledge_template(),
+                results_name=self.__name
+            )
+            self.constraint_list = list()
 
     def get_source(self):
         return self.__source
