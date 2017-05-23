@@ -7,19 +7,20 @@ import os
 results_formatter = partial(results_formatter, name=os.path.basename(__file__))
 
 function_defs = results_formatter({
-    (1, 0), (4, 0), (5, 4)
+    (1, 0), (4, 0), (5, 4), (32, 0), (36, 0), (37, 4)
 })
 
 function_calls = results_formatter({
-    (8, 15), (8, 17), (29, 16), (13, 9), (14, 4), (14, 11), (13, 31)
+    (8, 15), (8, 17), (29, 16), (13, 9), (14, 4), (14, 11), (13, 31), (38, 15),
+    (38, 27), (39, 11), (39, 24), (39, 38)
 })
 
 lambdas = results_formatter({
-    (11, 4), (13, 13), (14, 11)
+    (11, 4), (13, 13), (14, 11), (33, 12), (39, 24)
 })
 
 immediately_called_lambdas = results_formatter({
-    (14, 11)
+    (14, 11), (39, 24)
 })
 
 decorators = results_formatter({
@@ -27,7 +28,31 @@ decorators = results_formatter({
 })
 
 builtins_calls = results_formatter({
-    (13, 31), (13, 9), (14, 4), (23, 5)
+    (13, 31), (13, 9), (14, 4), (23, 5), (38, 15), (38, 27), (39, 11), (39, 38)
+})
+
+without_parameters = results_formatter({
+    (32, 0), (33, 12), (23, 5)
+})
+
+without_args = (without_parameters | results_formatter({
+    (29, 16)
+}))
+
+with_kwargs = results_formatter({
+    (1, 0), (29, 16), (37, 4)
+})
+
+variadic_args = results_formatter({
+    (36, 0), (37, 4), (39, 24)
+})
+
+variadic_kwargs = results_formatter({
+    (37, 4)
+})
+
+with_default_values = results_formatter({
+    (1, 0)
 })
 
 all_results = (function_defs | function_calls | builtins_calls | lambdas |
@@ -39,7 +64,6 @@ def grepper():
     engine = hg.Grepper(
         os.path.abspath('tests/data/Kind/Functions.py'))
     return engine
-
 
 @pytest.mark.parametrize(('decorator_consideration'), [True, False, None])
 @pytest.mark.parametrize(('immediately_called'), [True, False, None])
@@ -109,3 +133,52 @@ def test_Functions_Decorator_name(grepper, kind, name, result, is_builtin):
     ):
         result = set([])
     assert set(grepper.get_all_results()) == results_formatter(result)
+
+@pytest.mark.parametrize(('default'), [True, False, None])
+@pytest.mark.parametrize(('kwargs_variadicity'), [True, False, None])
+@pytest.mark.parametrize(('kwargs'), [True, False, None])
+@pytest.mark.parametrize(('args_variadicity'), [True, False, None])
+@pytest.mark.parametrize(('args'), [True, False, None])
+@pytest.mark.parametrize(('parameter_consideration'), [True, False, None])
+@pytest.mark.parametrize(('consideration'), [True, None])
+def test_Functions_Parameters(grepper, kind, consideration, default,
+                              args, args_variadicity,
+                              kwargs, kwargs_variadicity,
+                              parameter_consideration):
+    if any([consideration, parameter_consideration, default,
+            args, args_variadicity, kwargs, kwargs_variadicity]):
+        kind.reset()
+        kind.Functions.Parameters.with_default_values = default
+        kind.Functions.Parameters.Arguments.is_variadic = args_variadicity
+        kind.Functions.Parameters.Arguments.consideration = args
+        kind.Functions.Parameters.Keywords.is_variadic = kwargs_variadicity
+        kind.Functions.Parameters.Keywords.consideration = kwargs
+        kind.Functions.Parameters.consideration = parameter_consideration
+        kind.Functions.consideration = consideration
+        results = all_results.copy()
+        if parameter_consideration:
+            results -= without_parameters
+        elif parameter_consideration is False:
+            results &= without_parameters
+        if args:
+            results -= without_args
+        elif args is False:
+            results &= without_args
+        if args_variadicity:
+            results &= variadic_args
+        elif args_variadicity is False:
+            results -= variadic_args
+        if kwargs:
+            results &= with_kwargs
+        elif kwargs is False:
+            results -= with_kwargs
+        if kwargs_variadicity:
+            results &= variadic_kwargs
+        elif kwargs_variadicity is False:
+            results -= variadic_kwargs
+        if default:
+            results &= with_default_values
+        elif default is False:
+            results -= with_default_values
+        grepper.add_constraint(kind)
+        assert set(grepper.get_all_results()) == results_formatter(results)

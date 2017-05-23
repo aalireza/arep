@@ -231,6 +231,15 @@ class Kind(object):
             'Decorators': {
                 'name': None
             },
+            'Parameters': {
+                'Arguments': {
+                    'is_variadic': None,
+                },
+                'Keywords': {
+                    'is_variadic': None,
+                },
+                'with_default_values': None,
+            },
         },
         'Classes': {
             'name': None,

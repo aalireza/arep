@@ -254,33 +254,145 @@ class Functions(object):
                 )
             return not name
 
+        def arity(arity, node, knowledge):
+            # For a proper implementation, one needs to remember function
+            # redefentions.
+            raise NotImplementedError
+
+        def return_type(return_type, node, knowledge):
+            # For a proper implementation, one needs to remember function
+            # redefenitions to properly map function calls to their
+            # definitions.
+            raise NotImplementedError
+
         def __new__(self, **kwargs):
             return ValidatorForm(self, **kwargs)
 
-    class Arguments(object):
+    class Parameters(object):
+
+        def _has_fixed_arguments(node, knowledge):
+            if node.lineno == 29 and node.col_offset == 16:
+                print(node)
+            if any([f(node, knowledge) for f in {
+                    Functions._regular_def, Functions._lambda}]):
+                return bool(len(node.args.args) > 0)
+            if Functions._regular_call(node, knowledge):
+                return bool(len(node._parent.args) > 0
+                            if hasattr(node._parent, "args")
+                            else False)
+
+        def _has_variadic_arguments(node, knowledge):
+            if any([f(node, knowledge) for f in {
+                    Functions._regular_def, Functions._lambda}]):
+                return bool(node.args.vararg is not None)
+
+        def _has_fixed_keywords(node, knowledge):
+            if any([f(node, knowledge) for f in {
+                    Functions._regular_def, Functions._lambda}]):
+                return bool(len(node.args.defaults) > 0)
+            if Functions._regular_call(node, knowledge):
+                return bool(len(node._parent.keywords) > 0
+                            if hasattr(node._parent, "keywords")
+                            else False)
+
+        def _has_variadic_keywords(node, knowledge):
+            if any([f(node, knowledge) for f in {
+                    Functions._regular_def, Functions._lambda}]):
+                return bool(node.args.kwarg is not None)
 
         def basic(node, consideration, knowledge):
-            raise NotImplementedError
+            if consideration is None:
+                return True
+            if Functions.basic(node, True, knowledge):
+                return ValidationForm(
+                    consideration,
+                    condition=bool(any([
+                        getattr(Functions.Parameters, f)(node, knowledge)
+                        for f in {"_has_fixed_arguments",
+                                  "_has_fixed_keywords",
+                                  "_has_variadic_arguments",
+                                  "_has_variadic_keywords"}
+                    ]))
+                )
+            return not consideration
 
-        def arity(arity, node, knowledge):
-            raise NotImplementedError
-
-        def argument_list(argument_list, node, knowledge):
-            raise NotImplementedError
-
-        def keyword_list(keyword_list, node, knowledge):
-            raise NotImplementedError
-
-        def has_unfixed_number_of_arguments(
-                has_unfixed_number_of_arguments, node, knowledge):
-            raise NotImplementedError
-
-        def has_unfixed_number_of_keywords(
-                has_unfixed_number_of_keywords, node, knowledge):
-            raise NotImplementedError
+        def with_default_values(with_default_values, node, knowledge):
+            if with_default_values is None:
+                return True
+            if (
+                    Functions.Parameters.basic(node, True, knowledge) and
+                    not Functions._regular_call(node, knowledge)
+            ):
+                return ValidationForm(
+                    with_default_values,
+                    condition=bool(len(node.args.defaults) > 0)
+                )
+            return not with_default_values
 
         def __new__(self, **kwargs):
             return ValidatorForm(self, **kwargs)
+
+        class Arguments(object):
+            def basic(node, consideration, knowledge):
+                if consideration is None:
+                    return True
+                if Functions.basic(node, True, knowledge):
+                    return ValidationForm(
+                        consideration,
+                        condition=bool(any([
+                            getattr(Functions.Parameters, f)(node, knowledge)
+                            for f in {"_has_fixed_arguments",
+                                      "_has_variadic_arguments"}
+                        ]))
+                    )
+                return not consideration
+
+            def is_variadic(is_variadic, node, knowledge):
+                if is_variadic is None:
+                    return True
+                if Functions.Parameters.Arguments.basic(node, True, knowledge):
+                    return ValidationForm(
+                        is_variadic,
+                        condition=bool(
+                            Functions.Parameters._has_variadic_arguments(
+                                node, knowledge)
+                        )
+                    )
+                return not is_variadic
+
+            def __new__(self, **kwargs):
+                return ValidatorForm(self, **kwargs)
+
+        class Keywords(object):
+            def basic(node, consideration, knowledge):
+                if consideration is None:
+                    return True
+                if Functions.basic(node, True, knowledge):
+                    return ValidationForm(
+                        consideration,
+                        condition=bool(any([
+                            getattr(Functions.Parameters, f)(node, knowledge)
+                            for f in {"_has_fixed_keywords",
+                                      "_has_variadic_keywords"}
+                        ]))
+                    )
+                return not consideration
+
+            def is_variadic(is_variadic, node, knowledge):
+                if is_variadic is None:
+                    return True
+                if Functions.Parameters.Keywords.basic(node, True, knowledge):
+                    return ValidationForm(
+                        is_variadic,
+                        condition=bool(
+                            Functions.Parameters._has_variadic_keywords(
+                                node, knowledge)
+                        )
+                    )
+                return not is_variadic
+
+            def __new__(self, **kwargs):
+                return ValidatorForm(self, **kwargs)
 
 
 class Classes(object):

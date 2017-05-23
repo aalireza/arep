@@ -1,4 +1,4 @@
-def f(x, y):
+def f(x, y=0):
     return x + y
 
 def g(x):
@@ -26,4 +26,14 @@ class NotFunction(object):
 
 
 a = NotFunction("stuff")
-b = NotFunction(f("another stuff"))
+b = NotFunction(f(x="another stuff"))
+
+
+def func_without_argument():
+    return (lambda: None)
+
+
+def variadic1(*args):
+    def variadic2(*args, **kwargs):
+        return sum(args) + sum(kwargs.values())
+    return sum(args) + (lambda *args: sum(args))(*args)
