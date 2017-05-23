@@ -62,7 +62,6 @@ class Grepper(object):
 
             validators = list()
             for specs in validator_specs:
-                print(specs)
                 result = getattr(Validators, specs.address[0])
                 for address_index in range(1, len(specs.address)):
                     result = getattr(result, specs.address[address_index])

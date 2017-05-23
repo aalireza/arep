@@ -229,7 +229,6 @@ def comparison_evaluator(node):
             map(lambda op: operations[type(op)], node.ops),
             node.comparators
     ):
-        print(node, op, comparator)
         left = op(left, type_seive(comparator))
 
     return left
