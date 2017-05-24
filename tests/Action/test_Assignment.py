@@ -37,3 +37,14 @@ def test_Assignment(grepper, action, Assign, AugAssign):
             results -= aug_assign_results
         grepper.add_constraint(action)
         assert set(grepper.get_all_results()) == results
+
+
+@pytest.mark.parametrize(('symbol', 'results'), [
+    ('+', {(9, 4)}),
+    ('-', set([]))
+])
+def test_Assignment_augmented_symbol(grepper, action, symbol, results):
+    action.reset()
+    action.Assignment.Operational_Augmentation.operation_symbol = symbol
+    grepper.add_constraint(action)
+    assert set(grepper.get_all_results()) == results_formatter(results)

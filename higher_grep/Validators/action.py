@@ -1,5 +1,6 @@
 from higher_grep.utils import comparison_evaluator
 from higher_grep.Validators.forms import ValidationForm, ValidatorForm
+from higher_grep.utils import ast_operation_symbols
 import ast
 
 
@@ -109,8 +110,18 @@ class Assignment(object):
                 )
             return not consideration
 
-        def operation(node):
-            raise NotImplementedError
+        def operation_symbol(operation_symbol, node):
+            if operation_symbol is None:
+                return True
+            if Assignment.Operational_Augmentation.basic(node, True):
+                return ValidationForm(
+                    operation_symbol,
+                    condition=bool(
+                        ast_operation_symbols()[
+                            type(node.op)] == operation_symbol
+                    )
+                )
+            return not operation_symbol
 
         def __new__(self, **kwargs):
             return ValidatorForm(self, **kwargs)

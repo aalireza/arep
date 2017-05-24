@@ -154,7 +154,7 @@ class Action(object):
         },
         'Assignment': {
             'Operational_Augmentation': {
-                'operation': None
+                'operation_symbol': None
             }
         },
         'Assertion': {
