@@ -182,6 +182,17 @@ class Functions(object):
             )
         return not is_builtin
 
+    def arity(arity, node, knowledge):
+        # For a proper implementation, one needs to remember function
+        # redefentions.
+        raise NotImplementedError
+
+    def return_type(return_type, node, knowledge):
+        # For a proper implementation, one needs to remember function
+        # redefenitions to properly map function calls to their
+        # definitions.
+        raise NotImplementedError
+
     def name(name, node, knowledge):
         if name is None:
             return True
@@ -254,17 +265,6 @@ class Functions(object):
                     )
                 )
             return not name
-
-        def arity(arity, node, knowledge):
-            # For a proper implementation, one needs to remember function
-            # redefentions.
-            raise NotImplementedError
-
-        def return_type(return_type, node, knowledge):
-            # For a proper implementation, one needs to remember function
-            # redefenitions to properly map function calls to their
-            # definitions.
-            raise NotImplementedError
 
         def __new__(self, **kwargs):
             return ValidatorForm(self, **kwargs)
