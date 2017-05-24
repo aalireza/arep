@@ -253,7 +253,10 @@ class Kind(object):
             }
         },
         'Operations': {
-            'stringified_operation': None,
+            'symbol': None,
+            'augments_an_assignment': None,
+            'is_boolean': None,
+            'is_comparative': None,
             'is_unary': None,
             'is_binary': None,
         }

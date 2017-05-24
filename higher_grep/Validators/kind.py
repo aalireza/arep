@@ -1,5 +1,6 @@
 from higher_grep.Validators.forms import ValidationForm, ValidatorForm
 from higher_grep.Validators import action
+from higher_grep.utils import ast_operation_symbols
 import ast
 
 
@@ -452,13 +453,85 @@ class Comprehensions(object):
 
 class Operations(object):
     def basic(node, consideration):
-        raise NotImplementedError
+        return ValidationForm(
+            consideration,
+            condition=bool(type(node) in {
+                    ast.BinOp, ast.UnaryOp, ast.Compare, ast.BoolOp,
+                    ast.AugAssign
+            })
+        )
 
-    def stringified_operation(stringified_operation, node):
-        raise NotImplementedError
+    def symbol(symbol, node):
+        if symbol is None:
+            return True
+        if any([getattr(Operations, x)(True, node)
+                for x in {'augments_an_assignment', 'is_binary', 'is_unary',
+                          'is_boolean'}]):
+            return ValidationForm(
+                symbol,
+                condition=bool(
+                    ast_operation_symbols()[type(node.op)] == symbol
+                )
+            )
+        elif Operations.is_comparative(True, node):
+            return ValidationForm(
+                symbol,
+                condition=bool(
+                    symbol in {ast_operation_symbols()[type(op)]
+                               for op in node.ops}
+                )
+            )
+        return not symbol
 
-    def is_unary(is_unary, consideration):
-        raise NotImplementedError
+    def augments_an_assignment(augments_an_assignment, node):
+        if augments_an_assignment is None:
+            return True
+        if Operations.basic(node, True):
+            return ValidationForm(
+                augments_an_assignment,
+                condition=bool(type(node) is ast.AugAssign)
+            )
+        return not augments_an_assignment
 
-    def is_binary(is_binary, consideration):
-        raise NotImplementedError
+    def is_boolean(is_boolean, node):
+        if is_boolean is None:
+            return True
+        if Operations.basic(node, True):
+            return ValidationForm(
+                is_boolean,
+                condition=bool(type(node) is ast.BoolOp)
+            )
+        return not is_boolean
+
+    def is_comparative(is_comparative, node):
+        if is_comparative is None:
+            return True
+        if Operations.basic(node, True):
+            return ValidationForm(
+                is_comparative,
+                condition=bool(type(node) is ast.Compare)
+            )
+        return not is_comparative
+
+    def is_unary(is_unary, node):
+        if is_unary is None:
+            return True
+        if Operations.basic(node, True):
+            return ValidationForm(
+                is_unary,
+                condition=bool(type(node) is ast.UnaryOp)
+            )
+        return not is_unary
+
+    def is_binary(is_binary, node):
+        if is_binary is None:
+            return True
+        if Operations.basic(node, True):
+            return ValidationForm(
+                is_binary,
+                condition=bool(type(node) is ast.BinOp)
+            )
+        return not is_binary
+
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
