@@ -81,11 +81,9 @@ class Grepper(object):
             for validator_predicate in constraint_block
         }
         for node in ast.walk(self.__ast):
-            if all([
-                    validator_predicate(
-                        node=node, knowledge=self.__knowledge_template
-                    ) for validator_predicate in validator_predicates
-            ]):
+            if all([validator_predicate(
+                    node=node, knowledge=self.__knowledge_template
+            ) for validator_predicate in validator_predicates]):
                 try:
                     yield Result(
                         name=self.__name,
