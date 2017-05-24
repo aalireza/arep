@@ -247,10 +247,6 @@ class Kind(object):
             'attributes_list': None,
             'methods_list': None,
         },
-        'Generators': {
-            'name': None,
-            'is_expression': None,
-        },
         'Comprehensions': {
             spec: None for spec in {
                 'of_list', 'of_set', 'of_dict', 'of_gen'

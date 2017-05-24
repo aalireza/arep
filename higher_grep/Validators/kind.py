@@ -415,20 +415,6 @@ class Classes(object):
         return ValidatorForm(self, **kwargs)
 
 
-class Generators(object):
-    def basic(node, consideration):
-        raise NotImplementedError
-
-    def name(name, node):
-        raise NotImplementedError
-
-    def is_expression(is_expression, node):
-        raise NotImplementedError
-
-    def __new__(self, **kwargs):
-        return ValidatorForm(self, **kwargs)
-
-
 class Comprehensions(object):
     def basic(node, consideration, knowledge):
         return ValidationForm(
