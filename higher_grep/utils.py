@@ -149,7 +149,7 @@ def count_arity_ast(node):
     return None
 
 
-def _ast_mapped_operators():
+def ast_mapped_operators():
 
     def basic_reducer(definition, *args):
         results = set([])
@@ -212,6 +212,37 @@ def _ast_mapped_operators():
     return ast_mappings
 
 
+def ast_operation_symbols():
+    return {
+        ast.Is: 'is',
+        ast.Not: 'not',
+        ast.And: 'and',
+        ast.Or: 'in',
+        ast.Eq: '==',
+        ast.NotEq: '!=',
+        ast.Lt: '<',
+        ast.LtE: '<=',
+        ast.Gt: '>',
+        ast.GtE: '>=',
+        ast.UAdd: '+',
+        ast.USub: '-',
+        ast.Add: '+',
+        ast.Sub: '-',
+        ast.Mult: '*',
+        ast.Div: '/',
+        ast.FloorDiv: '//',
+        ast.Mod: '%',
+        ast.Pow: '**',
+        ast.MatMult: '@',
+        ast.Invert: '~',
+        ast.LShift: '<<',
+        ast.RShift: '>>',
+        ast.BitAnd: '&',
+        ast.BitOr: '|',
+        ast.BitXor: '^',
+    }
+
+
 def comparison_evaluator(node):
 
     def type_seive(comparator):
@@ -223,7 +254,7 @@ def comparison_evaluator(node):
 
     if not bool(type(node) is ast.Compare):
         raise TypeError("{} is not a comparator".format(node))
-    operations = _ast_mapped_operators()
+    operations = ast_mapped_operators()
     left = type_seive(node.left)
     for op, comparator in zip(
             map(lambda op: operations[type(op)], node.ops),

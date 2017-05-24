@@ -3,7 +3,7 @@ import pytest
 import ast
 
 
-ops = hg.utils._ast_mapped_operators()
+ops = hg.utils.ast_mapped_operators()
 
 
 @pytest.mark.parametrize(('args', 'result'), [
