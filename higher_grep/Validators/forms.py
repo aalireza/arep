@@ -35,3 +35,17 @@ def ValidationForm(consideration, condition, consideration_types={}):
     ):
         return condition
     return not condition
+
+
+def PositionalBasicForm(consideration, minimum, maximum):
+    def _range_checker(minimum, maximum):
+        return (
+            True
+            if not (type(minimum) is type(maximum) is int)
+            else bool(minimum <= maximum)
+        )
+
+    return ValidationForm(
+        consideration,
+        condition=bool(_range_checker(minimum, maximum))
+    )

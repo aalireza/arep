@@ -1,21 +1,12 @@
-from higher_grep.Validators.forms import ValidationForm, ValidatorForm
-
-
-def _range_checker(minimum, maximum):
-    return (
-        True
-        if not (type(minimum) is type(maximum) is int)
-        else bool(minimum <= maximum)
-    )
+from higher_grep.Validators.forms import (
+    ValidationForm, ValidatorForm, PositionalBasicForm
+)
 
 
 class Positional(object):
     class Line_Numbers(object):
-        def basic(node, consideration, minimum, maximum):
-            return ValidationForm(
-                consideration,
-                condition=bool(_range_checker(minimum, maximum))
-            )
+        def basic(consideration, minimum, maximum):
+            return PositionalBasicForm(consideration, minimum, maximum)
 
         def minimum(minimum, node):
             return ValidationForm(
@@ -33,11 +24,8 @@ class Positional(object):
             return ValidatorForm(self, **kwargs)
 
     class Column_Numbers(object):
-        def basic(node, consideration, minimum, maximum):
-            return ValidationForm(
-                consideration,
-                condition=bool(_range_checker(minimum, maximum))
-            )
+        def basic(consideration, minimum, maximum):
+            return PositionalBasicForm(consideration, minimum, maximum)
 
         def minimum(minimum, node):
             return ValidationForm(
