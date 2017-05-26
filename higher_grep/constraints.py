@@ -204,7 +204,7 @@ class Action(object):
         },
         **{spec: dict()
            for spec in {
-                   'Call', 'Initialization', 'Definition', 'Deletion',
+                   'Call', 'Instantiation', 'Definition', 'Deletion',
                    'Indexing', 'Passing', 'Returning', 'Breaking', 'Continuing'
            }
         }

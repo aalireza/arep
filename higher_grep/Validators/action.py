@@ -1,5 +1,6 @@
 from higher_grep.utils import comparison_evaluator
 from higher_grep.Validators.forms import ValidationForm, ValidatorForm
+from higher_grep.Validators.kind import Classes
 from higher_grep.utils import ast_operation_symbols
 import ast
 
@@ -15,9 +16,12 @@ class Call(object):
         return ValidatorForm(self, **kwargs)
 
 
-class Initialization(object):
-    def basic(node):
-        pass
+class Instantiation(object):
+    def basic(node, consideration, knowledge):
+        return ValidationForm(
+            consideration,
+            condition=bool(Classes._regular_call(node, knowledge))
+        )
 
     def __new__(self, **kwargs):
         return ValidatorForm(self, **kwargs)
