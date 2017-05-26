@@ -157,6 +157,10 @@ class Action(object):
                 'operation_symbol': None
             }
         },
+        'Unpacking': {
+            'one_dimensional': None,
+            'two_dimensional': None,
+        },
         'Assertion': {
             'Error': {
                 'content': None

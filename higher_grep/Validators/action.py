@@ -127,6 +127,44 @@ class Assignment(object):
             return ValidatorForm(self, **kwargs)
 
 
+class Unpacking(object):
+
+    def _single(node):
+        return (type(node) is ast.Starred)
+
+    def _double(node):
+        return (type(node) is ast.Name) and (type(node._parent) is ast.keyword)
+
+    def basic(node, consideration):
+        return ValidationForm(
+            consideration,
+            condition=bool(Unpacking._single(node) or Unpacking._double(node))
+        )
+
+    def one_dimensional(one_dimensional, node):
+        if one_dimensional is None:
+            return True
+        if Unpacking.basic(node, True):
+            return ValidationForm(
+                one_dimensional,
+                condition=bool(Unpacking._single(node))
+            )
+        return not one_dimensional
+
+    def two_dimensional(two_dimensional, node):
+        if two_dimensional is None:
+            return True
+        if Unpacking.basic(node, True):
+            return ValidationForm(
+                two_dimensional,
+                condition=bool(Unpacking._double(node))
+            )
+        return not two_dimensional
+
+    def __new__(self, **kwargs):
+        return ValidatorForm(self, **kwargs)
+
+
 class Assertion(object):
     def basic(node, consideration):
         return ValidationForm(
