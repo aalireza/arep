@@ -1,20 +1,20 @@
 from higher_grep.Validators.forms import ValidationForm, ValidatorForm
 
 
+def _range_checker(minimum, maximum):
+    return (
+        True
+        if not (type(minimum) is type(maximum) is int)
+        else bool(minimum <= maximum)
+    )
+
+
 class Positional(object):
-
-    def _range_checker(minimum, maximum):
-        return (
-            True
-            if not (type(minimum) is type(maximum) is int)
-            else bool(minimum <= maximum)
-        )
-
     class Line_Numbers(object):
         def basic(node, consideration, minimum, maximum):
             return ValidationForm(
                 consideration,
-                condition=bool(Positional._range_checker(minimum, maximum))
+                condition=bool(_range_checker(minimum, maximum))
             )
 
         def minimum(minimum, node):
@@ -36,7 +36,7 @@ class Positional(object):
         def basic(node, consideration, minimum, maximum):
             return ValidationForm(
                 consideration,
-                condition=bool(Positional._range_checker(minimum, maximum))
+                condition=bool(_range_checker(minimum, maximum))
             )
 
         def minimum(minimum, node):
