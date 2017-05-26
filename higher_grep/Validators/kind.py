@@ -397,20 +397,47 @@ class Functions(object):
 
 
 class Classes(object):
-    def basic(node, consideration):
-        raise NotImplementedError
+    def _regular_def(node):
+        return bool(type(node) is ast.ClassDef)
 
-    def name(name, consideration):
-        raise NotImplementedError
+    def _regular_call(node, knowledge):
+        if bool(type(node._parent) is ast.Call):
+            return bool(
+                getattr(node, "id") in knowledge['Class']
+                if hasattr(node, "id") else False
+            )
+        return False
 
-    def bases_list(bases_list, node):
-        raise NotImplementedError
+    def _name_def(node):
+        return (node.name if bool(type(node) is ast.ClassDef) else False)
 
-    def attributes_list(attributes_list, node):
-        raise NotImplementedError
+    def _name_call(node, knowledge):
+        return (getattr(node, "id") if hasattr(node, "id") else False)
 
-    def methods_list(methods_list, node):
-        raise NotImplementedError
+    def basic(node, consideration, knowledge):
+        return ValidationForm(
+            consideration,
+            condition=bool(
+                Classes._regular_def(node) or
+                Classes._regular_call(node, knowledge)
+            )
+        )
+
+    def name(name, node, knowledge):
+        if name is None:
+            return True
+        if Classes.basic(node, True, knowledge):
+            return ValidationForm(
+                name,
+                condition=bool(
+                    (name == Classes._name_def(node))
+                    if Classes._regular_def(node)
+                    else (name == Classes._name_call(node, knowledge))
+                    if Classes._regular_call(node, knowledge)
+                    else (not name)
+                )
+            )
+        return not name
 
     def __new__(self, **kwargs):
         return ValidatorForm(self, **kwargs)

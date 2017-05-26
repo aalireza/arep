@@ -243,9 +243,6 @@ class Kind(object):
         },
         'Classes': {
             'name': None,
-            'bases_list': None,
-            'attributes_list': None,
-            'methods_list': None,
         },
         'Comprehensions': {
             spec: None for spec in {
