@@ -270,18 +270,25 @@ class Kind(object):
 class Properties(object):
     __Template_Form = {
         'considerable': True,
-        **{category: {
-            **{
-                key: {
-                    'minimum': None,
-                    'maximum': None
-                } for key in {'Line_Numbers', 'Column_Numbers'}
-            }
-        } for category in {'Positional', 'Cohesiveness'}
+        'Positional': {
+            'Line_Numbers': {
+                'minimum': None,
+                'maximum': None,
+            },
+            'Column_Numbers': {
+                'minimum': None,
+                'maximum': None,
+            },
         },
         'Nestedness': {
-            'minimum': None,
-            'maximum': None,
+            'Inward': {
+                'minimum': None,
+                'maximum': None,
+            },
+            'Outward': {
+                'minimum': None,
+                'maximum': None,
+            }
         }
     }
 
