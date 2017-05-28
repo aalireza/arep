@@ -1,4 +1,41 @@
 class ConstraintForm(type):
+    """
+    It acts as a template for all of the constraints. It receives a dictionary
+    (may be nested) and makes an object that is a chain of connected classes,
+    each with their own attributes and methods (where those attributes are the
+    dictionary keys). The attributes and methods for each class is saved in
+    `specs` dictionary.
+
+    All capitalized names are those who have further specifications and all
+    lower case names are properties of those classes. Capitalized names can't
+    be assigned by a user while the lower case ones can.
+
+    Assignment of a specification to `None` indicates indifference. Otherwise,
+    it'll be considered in evaluation.
+
+    In case of name collision for small case names, a trailing underline is
+    used e.g. Action.Trying.Except.as_
+
+    If the class has `consideration` specification, then assigning it to False
+    would automatically ignore subclass specifications unless stated otherwise.
+
+
+    Attributes
+    ----------
+    __name__ : str
+        Works the same way as `quote` in Lisp.
+    _class_vars : {str: any}
+        Address of all of the attributes and methods of the class.
+    _methods: {str: functions}
+
+    Methods
+    _______
+    view_actives()
+        View only the specs whose values have been changed.
+    __itername__()
+        Works the same is __iter__ except it iterates of __name__
+    reset(replace_with)
+    """
 
     def __new__(cls, name, parents, specs):
 
@@ -141,6 +178,10 @@ class ConstraintForm(type):
 
 
 class Action(object):
+    """
+    Uses the ConstraintForm to create a series of nested classes representing
+    all of the constraints in `Action` category.
+    """
     __Template_Form = {
         'considerable': True,
         'Import': {
@@ -215,6 +256,10 @@ class Action(object):
 
 
 class Kind(object):
+    """
+    Uses the ConstraintForm to create a series of nested classes representing
+    all of the constraints in `Kind` category.
+    """
     __Template_Form = {
         'considerable': True,
         'Variables': {
@@ -268,6 +313,10 @@ class Kind(object):
 
 
 class Properties(object):
+    """
+    Uses the ConstraintForm to create a series of nested classes representing
+    all of the constraints in `Kind` category.
+    """
     __Template_Form = {
         'considerable': True,
         'Positional': {

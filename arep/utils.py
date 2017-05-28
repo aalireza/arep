@@ -11,6 +11,14 @@ if sys.version_info > (3, 0):
 
 
 def Knowledge_template():
+    """
+    A dictionary of what's known for all python programs by default on
+    the system it's being run.
+
+    Returns
+    -------
+    knowledge : {str: type}
+    """
     knowledge = {
         'comprehension_forms': {
             ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp
@@ -50,9 +58,35 @@ def Knowledge_template():
 
 
 def update_knowledge_template(
-        ast_tree_with_parent_pointers, knowledge_template, results_name,
+        ast_tree_with_parent_pointers, knowledge_template,
         _with_classes=True, _with_funcs=True, _with_decorators=True,
         _with_class_methods=True):
+    """
+    Updates the knowledge template to reflect on some of the knowledge that
+    can be known by scanning all of the source code.
+
+    Parameters
+    ----------
+    ast_tree_with_parent_pointers : ast
+        A modified AST with parent pointers. [1]_
+    knowledge_template : {str: type}
+    _with_classes : bool
+        Default is `True`
+    _with_funcs : bool
+        Default is `True`
+    _with_decorators : bool
+        Default is `True`
+    _with_class_methods : bool
+        Default is `True`
+
+    Returns
+    -------
+    knowledge_template : {str: type}
+
+    References
+    ----------
+    .. [1] : establish_parent_pointers(tree)
+    """
 
     def func_name_checker(node):
         if type(node) is ast.FunctionDef:
@@ -120,6 +154,17 @@ def update_knowledge_template(
 
 
 def establish_parent_link(tree):
+    """
+    Makes a parent pointer for all of the nodes who have a parent.
+
+    Parameters
+    ----------
+    tree : ast
+
+    Returns
+    -------
+    tree : ast
+    """
     to_be_processed = [tree]
     while to_be_processed:
         current_parent = to_be_processed.pop(0)
@@ -130,6 +175,18 @@ def establish_parent_link(tree):
 
 
 def count_arity(func):
+    """
+    Returns the number of the arguments that the function receives.
+
+    Parameters
+    ----------
+    func : any
+
+    Returns
+    -------
+    float("inf")    if the function is variadic
+    int             otherwise
+    """
     if any(
             [possibly_infinite is not None
              for possibly_infinite in {spec(func).varargs, spec(func).varkw}]
@@ -139,6 +196,19 @@ def count_arity(func):
 
 
 def count_arity_ast(node):
+    """
+    Returns the number of the arguments that the function receives.
+
+    Parameters
+    ----------
+    node : ast
+
+    Returns
+    -------
+    None           if type(node) is not a function definition.
+    float("inf")   if function is variadic
+    int            otherwise
+    """
     if type(node) in {ast.Lambda, ast.FunctionDef}:
         if any(
                 [getattr(node.arguments, cat) is not None
@@ -150,6 +220,15 @@ def count_arity_ast(node):
 
 
 def ast_mapped_operators():
+    """
+    Returns a dictionary whose keys are ast nodes of operators and whose
+    values are functions that operates on their arguments with their respective
+    key.
+
+    Returns
+    -------
+    ast_mappings : {ast: (*args) -> {True, False}}
+    """
 
     def basic_reducer(definition, *args):
         results = set([])
@@ -213,6 +292,14 @@ def ast_mapped_operators():
 
 
 def ast_operation_symbols():
+    """
+    Returns a dictionary whose keys are ast nodes of operators and whose values
+    are the symbols representing those operations.
+
+    Returns
+    -------
+    {ast: str}
+    """
     return {
         ast.Is: 'is',
         ast.Not: 'not',
@@ -244,6 +331,17 @@ def ast_operation_symbols():
 
 
 def comparison_evaluator(node):
+    """
+    Evaluates the value of an ast.Compare node.
+
+    Parameters
+    ----------
+    node : ast
+
+    Returns
+    -------
+    left : type
+    """
 
     def type_seive(comparator):
         if bool(type(comparator) is ast.Num):
@@ -266,6 +364,17 @@ def comparison_evaluator(node):
 
 
 class Result(object):
+    """
+    The object representing a coordinate of a node inside of a python source
+    code and is being created and returned by the Grepper.
+
+    Attributes
+    ----------
+    name : str
+        File name of the program
+    line : int
+    column : int
+    """
     def __init__(self, name, line, column):
         self.name = name
         self.line = line
