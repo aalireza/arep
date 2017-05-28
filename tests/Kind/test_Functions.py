@@ -1,6 +1,6 @@
 from ..utils import kind, results_formatter
 from functools import partial
-import higher_grep as hg
+import arep
 import pytest
 import os
 
@@ -61,8 +61,7 @@ all_results = (function_defs | function_calls | builtins_calls | lambdas |
 
 @pytest.fixture
 def grepper():
-    engine = hg.Grepper(
-        os.path.abspath('tests/data/Kind/Functions.py'))
+    engine = arep.Grepper(os.path.abspath('tests/data/Kind/Functions.py'))
     return engine
 
 @pytest.mark.parametrize(('decorator_consideration'), [True, False, None])
@@ -81,7 +80,7 @@ def test_Functions(grepper, kind, consideration, is_builtin,
         kind.Functions.Decorators.consideration = decorator_consideration
         kind.Functions.Lambda.consideration = lambda_consideration
         kind.Functions.consideration = consideration
-        grepper.add_constraint(kind)
+        grepper.constraint_list.append(kind)
         results = all_results.copy()
         if lambda_consideration:
             results &= lambdas
@@ -99,7 +98,7 @@ def test_Functions(grepper, kind, consideration, is_builtin,
             results &= decorators
         elif decorator_consideration is False:
             results -= decorators
-        assert set(grepper.get_all_results()) == results
+        assert set(grepper.all_results()) == results
 
 
 @pytest.mark.parametrize(('name', 'results'), [
@@ -113,8 +112,8 @@ def test_Functions(grepper, kind, consideration, is_builtin,
 def test_Functions_name(grepper, kind, name, results):
     kind.reset()
     kind.Functions.name = name
-    grepper.add_constraint(kind)
-    assert set(grepper.get_all_results()) == results_formatter(results)
+    grepper.constraint_list.append(kind)
+    assert set(grepper.all_results()) == results_formatter(results)
 
 
 @pytest.mark.parametrize(('name', 'result'), [
@@ -126,13 +125,13 @@ def test_Functions_Decorator_name(grepper, kind, name, result, is_builtin):
     kind.reset()
     kind.Functions.is_builtin = is_builtin
     kind.Functions.Decorators.name = name
-    grepper.add_constraint(kind)
+    grepper.constraint_list.append(kind)
     if (
             is_builtin and bool(name != 'property') or
             bool(is_builtin is False) and bool(name == 'property')
     ):
         result = set([])
-    assert set(grepper.get_all_results()) == results_formatter(result)
+    assert set(grepper.all_results()) == results_formatter(result)
 
 @pytest.mark.parametrize(('default'), [True, False, None])
 @pytest.mark.parametrize(('kwargs_variadicity'), [True, False, None])
@@ -180,5 +179,5 @@ def test_Functions_Parameters(grepper, kind, consideration, default,
             results &= with_default_values
         elif default is False:
             results -= with_default_values
-        grepper.add_constraint(kind)
-        assert set(grepper.get_all_results()) == results_formatter(results)
+        grepper.constraint_list.append(kind)
+        assert set(grepper.all_results()) == results_formatter(results)

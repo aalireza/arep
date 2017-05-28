@@ -1,6 +1,6 @@
 from ..utils import action, results_formatter
 from functools import partial
-import higher_grep as hg
+import arep
 import pytest
 import os
 
@@ -19,8 +19,7 @@ all_results = (single | double)
 
 @pytest.fixture
 def grepper():
-    engine = hg.Grepper(
-        os.path.abspath('tests/data/Action/Unpacking.py'))
+    engine = arep.Grepper(os.path.abspath('tests/data/Action/Unpacking.py'))
     return engine
 
 
@@ -33,7 +32,7 @@ def test_Unpacking(grepper, action, consideration, dim1, dim2):
         action.Unpacking.one_dimensional = dim1
         action.Unpacking.two_dimensional = dim2
         action.Unpacking.consideration = consideration
-        grepper.add_constraint(action)
+        grepper.constraint_list.append(action)
         results = all_results.copy()
         if dim1:
             results &= single
@@ -43,4 +42,4 @@ def test_Unpacking(grepper, action, consideration, dim1, dim2):
             results &= double
         elif dim2 is False:
             results -= double
-        assert set(grepper.get_all_results()) == results
+        assert set(grepper.all_results()) == results

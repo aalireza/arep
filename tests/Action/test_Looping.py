@@ -1,6 +1,6 @@
 from ..utils import action, results_formatter
 from functools import partial
-import higher_grep as hg
+import arep
 import pytest
 import os
 
@@ -31,7 +31,7 @@ all_results = set(results_for | results_while)
 
 @pytest.fixture
 def grepper():
-    engine = hg.Grepper(os.path.abspath('tests/data/Action/Looping.py'))
+    engine = arep.Grepper(os.path.abspath('tests/data/Action/Looping.py'))
     return engine
 
 @pytest.mark.parametrize(('non_terminating'), [True, False, None])
@@ -76,5 +76,5 @@ def test_Looping(grepper, action, consideration,
             results -= results_infinite
         if any([for_, for_else]) and while_:
             results = set()
-        grepper.add_constraint(action)
-        assert set(grepper.get_all_results()) == results
+        grepper.constraint_list.append(action)
+        assert set(grepper.all_results()) == results

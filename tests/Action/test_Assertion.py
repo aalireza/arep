@@ -1,6 +1,6 @@
 from ..utils import action, results_formatter
 from functools import partial
-import higher_grep as hg
+import arep
 import pytest
 import os
 
@@ -12,7 +12,7 @@ all_results = results_formatter({(1, 0), (2, 0), (5, 4)})
 
 @pytest.fixture
 def grepper():
-    engine = hg.Grepper(os.path.abspath('tests/data/Action/Assertion.py'))
+    engine = arep.Grepper(os.path.abspath('tests/data/Action/Assertion.py'))
     return engine
 
 
@@ -30,8 +30,8 @@ def test_Assertion(grepper, action, error, assertion):
             results &= results_with_msg
         elif error is False:
             results -= results_with_msg
-        grepper.add_constraint(action)
-        assert set(grepper.get_all_results()) == results_formatter(results)
+        grepper.constraint_list.append(action)
+        assert set(grepper.all_results()) == results_formatter(results)
 
 
 @pytest.mark.parametrize(("msg", "result"), [
@@ -42,5 +42,5 @@ def test_Assertion(grepper, action, error, assertion):
 def test_Assertion_with_error_msg(grepper, action, msg, result):
     action.reset()
     action.Assertion.Error.content = msg
-    grepper.add_constraint(action)
-    assert set(grepper.get_all_results()) == results_formatter(result)
+    grepper.constraint_list.append(action)
+    assert set(grepper.all_results()) == results_formatter(result)

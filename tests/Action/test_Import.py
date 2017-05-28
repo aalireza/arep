@@ -1,6 +1,6 @@
 from ..utils import action, results_formatter
 from functools import partial
-import higher_grep as hg
+import arep
 import pytest
 import os
 
@@ -21,7 +21,7 @@ all_results = results_formatter({
 
 @pytest.fixture
 def grepper():
-    engine = hg.Grepper(os.path.abspath('tests/data/Action/Import.py'))
+    engine = arep.Grepper(os.path.abspath('tests/data/Action/Import.py'))
     return engine
 
 
@@ -45,8 +45,8 @@ def test_Import(grepper, action, Import, From, As):
             results &= results_with_as
         elif As is False:
             results -= results_with_as
-        grepper.add_constraint(action)
-        assert set(grepper.get_all_results()) == results
+        grepper.constraint_list.append(action)
+        assert set(grepper.all_results()) == results
 
 
 @pytest.mark.parametrize(('name', 'result'), [
@@ -58,8 +58,8 @@ def test_Import(grepper, action, Import, From, As):
 def test_Import_name(grepper, action, name, result):
     action.reset()
     action.Import.name = name
-    grepper.add_constraint(action)
-    assert set(grepper.get_all_results()) == results_formatter(result)
+    grepper.constraint_list.append(action)
+    assert set(grepper.all_results()) == results_formatter(result)
 
 
 @pytest.mark.parametrize(('From_consideration'), [True, None])
@@ -68,8 +68,7 @@ def test_Import_name(grepper, action, name, result):
     ('subprocess', {(2, 0)}),
     ('ast', {(3, 0)})
 ])
-def test_Import_From(grepper, action,
-                     results, From_name, From_consideration):
+def test_Import_From(grepper, action, results, From_name, From_consideration):
     action.reset()
     action.Import.From.consideration = (
         True
@@ -77,9 +76,8 @@ def test_Import_From(grepper, action,
         else From_consideration
     )
     action.Import.From.name = From_name
-    grepper.add_constraint(action)
-    obtained_results = set(grepper.get_all_results())
-    assert obtained_results == results_formatter(results)
+    grepper.constraint_list.append(action)
+    assert set(grepper.all_results()) == results_formatter(results)
 
 
 @pytest.mark.parametrize(('As_name', 'results'), [
@@ -91,5 +89,5 @@ def test_Import_From(grepper, action,
 def test_Import_As_name(grepper, action, As_name, results):
     action.reset()
     action.Import.As.name = As_name
-    grepper.add_constraint(action)
-    assert set(grepper.get_all_results()) == results_formatter(results)
+    grepper.constraint_list.append(action)
+    assert set(grepper.all_results()) == results_formatter(results)

@@ -1,6 +1,6 @@
 from ..utils import action, results_formatter
 from functools import partial
-import higher_grep as hg
+import arep
 import pytest
 import os
 
@@ -13,15 +13,15 @@ all_results = results_formatter({
 
 @pytest.fixture
 def grepper():
-    engine = hg.Grepper(os.path.abspath('tests/data/Action/Raising.py'))
+    engine = arep.Grepper(os.path.abspath('tests/data/Action/Raising.py'))
     return engine
 
 
 def test_Raising(grepper, action):
     action.reset()
     action.Raising.consideration = True
-    grepper.add_constraint(action)
-    assert set(grepper.get_all_results()) == all_results
+    grepper.constraint_list.append(action)
+    assert set(grepper.all_results()) == all_results
 
 
 @pytest.mark.parametrize(("type_", "result"), [
@@ -35,8 +35,8 @@ def test_Error_type(grepper, action, consideration, type_, result):
     action.reset()
     action.Raising.Error.type_ = type_
     action.Raising.Error.consideration = consideration
-    grepper.add_constraint(action)
-    assert set(grepper.get_all_results()) == results_formatter(result)
+    grepper.constraint_list.append(action)
+    assert set(grepper.all_results()) == results_formatter(result)
 
 
 @pytest.mark.parametrize(("message", "result"), [
@@ -49,8 +49,8 @@ def test_Error_message(grepper, action, consideration, message, result):
     action.reset()
     action.Raising.Error.message = message
     action.Raising.Error.consideration = consideration
-    grepper.add_constraint(action)
-    assert set(grepper.get_all_results()) == results_formatter(result)
+    grepper.constraint_list.append(action)
+    assert set(grepper.all_results()) == results_formatter(result)
 
 
 @pytest.mark.parametrize(("message"), ["Something", "test", "spam"])
@@ -59,14 +59,14 @@ def test_Error_message_type(grepper, action, message, type_):
     action.reset()
     action.Raising.Error.type_ = type_
     action.Raising.Error.message = message
-    grepper.add_constraint(action)
+    grepper.constraint_list.append(action)
     results = set([])
     if bool(type_ is Exception):
         if (message == "Something"):
             results = results_formatter({(3, 8)})
         elif (message == "test"):
             results = results_formatter({(10, 4)})
-    assert set(grepper.get_all_results()) == results_formatter(results)
+    assert set(grepper.all_results()) == results_formatter(results)
 
 @pytest.mark.parametrize(("name", "result"), [
     ("e", {(10, 4)}),
@@ -77,8 +77,8 @@ def test_Cause_name(grepper, action, consideration, name, result):
     action.reset()
     action.Raising.Cause.name = name
     action.Raising.Cause.consideration = consideration
-    grepper.add_constraint(action)
-    assert set(grepper.get_all_results()) == results_formatter(result)
+    grepper.constraint_list.append(action)
+    assert set(grepper.all_results()) == results_formatter(result)
 
 
 @pytest.mark.parametrize(('type_'), [Exception, SystemExit, None])
@@ -90,7 +90,7 @@ def test_Cause_name_Error_message_type(grepper, action, name, message,
     action.Raising.Cause.name = name
     action.Raising.Error.type_ = type_
     action.Raising.Error.message = message
-    grepper.add_constraint(action)
+    grepper.constraint_list.append(action)
     results = results_formatter({(10, 4)})
     if (
             (type_ not in {Exception, None}) or
@@ -98,4 +98,4 @@ def test_Cause_name_Error_message_type(grepper, action, name, message,
             (name != 'e')
     ):
         results = set([])
-    assert set(grepper.get_all_results()) == results
+    assert set(grepper.all_results()) == results

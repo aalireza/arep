@@ -1,6 +1,6 @@
 from ..utils import properties, results_formatter, coordinate_of_all_nodes
 from functools import partial
-import higher_grep as hg
+import arep
 import pytest
 import os
 
@@ -14,7 +14,7 @@ def program_path():
 
 @pytest.fixture
 def grepper(program_path):
-    engine = hg.Grepper(program_path)
+    engine = arep.Grepper(program_path)
     return engine
 
 
@@ -36,7 +36,7 @@ def test_Positional(grepper, coordinates, properties, line_min, line_max,
         properties.Positional.Line_Numbers.maximum = line_max
         properties.Positional.Column_Numbers.minimum = col_min
         properties.Positional.Column_Numbers.maximum = col_max
-        grepper.add_constraint(properties)
+        grepper.constraint_list.append(properties)
         filter_funcs = set([])
         if line_min is not None:
             filter_funcs.add((lambda result: line_min <= result.line))
@@ -46,10 +46,8 @@ def test_Positional(grepper, coordinates, properties, line_min, line_max,
             filter_funcs.add((lambda result: col_min <= result.column))
         if col_max is not None:
             filter_funcs.add((lambda result: result.column <= col_max))
-        print(filter_funcs)
-        print([x.column for x in coordinates])
         results = set(filter(
             lambda result: all([f(result) for f in filter_funcs]),
             coordinates
         ))
-        assert set(grepper.get_all_results()) == results
+        assert set(grepper.all_results()) == results

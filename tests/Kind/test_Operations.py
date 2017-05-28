@@ -1,6 +1,6 @@
 from ..utils import kind, results_formatter
 from functools import partial
-import higher_grep as hg
+import arep
 import pytest
 import os
 
@@ -31,8 +31,7 @@ all_results = (augmented | comparative | unary | binary | boolean)
 
 @pytest.fixture
 def grepper():
-    engine = hg.Grepper(
-        os.path.abspath('tests/data/Kind/Operations.py'))
+    engine = arep.Grepper(os.path.abspath('tests/data/Kind/Operations.py'))
     return engine
 
 
@@ -53,7 +52,7 @@ def test_Operations(grepper, kind, consideration, augments, is_boolean,
         kind.Operations.is_unary = is_unary
         kind.Operations.is_binary = is_binary
         kind.Operations.consideration = consideration
-        grepper.add_constraint(kind)
+        grepper.constraint_list.append(kind)
         results = all_results.copy()
         if augments:
             results &= augmented
@@ -75,7 +74,7 @@ def test_Operations(grepper, kind, consideration, augments, is_boolean,
             results &= binary
         elif is_binary is False:
             results -= binary
-        assert set(grepper.get_all_results()) == results
+        assert set(grepper.all_results()) == results
 
 
 @pytest.mark.parametrize(('symbol', 'results'), [
@@ -94,5 +93,5 @@ def test_Operations(grepper, kind, consideration, augments, is_boolean,
 def test_Operations_symbol(grepper, kind, symbol, results):
     kind.reset()
     kind.Operations.symbol = symbol
-    grepper.add_constraint(kind)
-    assert set(grepper.get_all_results()) == results_formatter(results)
+    grepper.constraint_list.append(kind)
+    assert set(grepper.all_results()) == results_formatter(results)

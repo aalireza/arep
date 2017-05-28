@@ -1,6 +1,6 @@
 from ..utils import kind, results_formatter
 from functools import partial
-import higher_grep as hg
+import arep
 import pytest
 import os
 
@@ -13,16 +13,15 @@ all_results = results_formatter({
 
 @pytest.fixture
 def grepper():
-    engine = hg.Grepper(
-        os.path.abspath('tests/data/Kind/STD_Types.py'))
+    engine = arep.Grepper(os.path.abspath('tests/data/Kind/STD_Types.py'))
     return engine
 
 
 def test_STD_Types(grepper, kind):
     kind.reset()
     kind.STD_Types.consideration = True
-    grepper.add_constraint(kind)
-    assert set(grepper.get_all_results()) == all_results
+    grepper.constraint_list.append(kind)
+    assert set(grepper.all_results()) == all_results
 
 
 @pytest.mark.parametrize(('type_', 'result'), [
@@ -35,5 +34,5 @@ def test_STD_Types_type(grepper, kind, type_, consideration, result):
     kind.reset()
     kind.STD_Types.type_ = type_
     kind.STD_Types.consideration = consideration
-    grepper.add_constraint(kind)
-    assert set(grepper.get_all_results()) == results_formatter(result)
+    grepper.constraint_list.append(kind)
+    assert set(grepper.all_results()) == results_formatter(result)

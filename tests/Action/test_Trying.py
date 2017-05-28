@@ -1,6 +1,6 @@
 from ..utils import action, results_formatter
 from functools import partial
-import higher_grep as hg
+import arep
 import pytest
 import os
 
@@ -19,7 +19,7 @@ all_results = (results_with_finally | results_misc)
 
 @pytest.fixture
 def grepper():
-    engine = hg.Grepper(os.path.abspath('tests/data/Action/Trying.py'))
+    engine = arep.Grepper(os.path.abspath('tests/data/Action/Trying.py'))
     return engine
 
 
@@ -30,13 +30,13 @@ def test_Trying(grepper, action, consideration, finally_):
         action.reset()
         action.Trying.finally_ = finally_
         action.Trying.consideration = consideration
-        grepper.add_constraint(action)
+        grepper.constraint_list.append(action)
         results = all_results.copy()
         if finally_:
             results &= results_with_finally
         elif finally_ is False:
             results -= results_with_finally
-        assert set(grepper.get_all_results()) == results
+        assert set(grepper.all_results()) == results
 
 
 @pytest.mark.parametrize(('type_', 'result'), [
@@ -49,8 +49,8 @@ def test_Trying_Except_type(grepper, action, consideration, type_, result):
     action.reset()
     action.Trying.Except.type_ = type_
     action.Trying.Except.consideration = consideration
-    grepper.add_constraint(action)
-    assert set(grepper.get_all_results()) == results_formatter(result)
+    grepper.constraint_list.append(action)
+    assert set(grepper.all_results()) == results_formatter(result)
 
 
 @pytest.mark.parametrize(('as_', 'result'), [
@@ -62,8 +62,8 @@ def test_Trying_Except_as(grepper, action, consideration, as_, result):
     action.reset()
     action.Trying.Except.as_ = as_
     action.Trying.Except.consideration = consideration
-    grepper.add_constraint(action)
-    assert set(grepper.get_all_results()) == results_formatter(result)
+    grepper.constraint_list.append(action)
+    assert set(grepper.all_results()) == results_formatter(result)
 
 @pytest.mark.parametrize(('type_'), [IndexError, AttributeError, Exception])
 @pytest.mark.parametrize(('as_'), ['e', 'z'])
@@ -73,8 +73,8 @@ def test_Trying_Except_type_as(grepper, action, consideration, type_, as_):
     action.Trying.Except.type_ = type_
     action.Trying.Except.as_ = as_
     action.Trying.Except.consideration = consideration
-    grepper.add_constraint(action)
+    grepper.constraint_list.append(action)
     results = set([])
     if (type_ is IndexError) and (as_ == 'e'):
         results = results_with_finally
-    assert set(grepper.get_all_results()) == results
+    assert set(grepper.all_results()) == results

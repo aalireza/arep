@@ -1,6 +1,6 @@
 from ..utils import action, results_formatter
 from functools import partial
-import higher_grep as hg
+import arep
 import pytest
 import os
 
@@ -24,8 +24,7 @@ all_results = (results_in_comprehension | results_regular | results_yield_from)
 
 @pytest.fixture
 def grepper():
-    engine = hg.Grepper(
-        os.path.abspath('tests/data/Action/Yielding.py'))
+    engine = arep.Grepper(os.path.abspath('tests/data/Action/Yielding.py'))
     return engine
 
 
@@ -38,7 +37,7 @@ def test_Yielding(grepper, action, consideration, from_, in_expression):
         action.Yielding.in_expression = in_expression
         action.Yielding.from_ = from_
         action.Yielding.consideration = consideration
-        grepper.add_constraint(action)
+        grepper.constraint_list.append(action)
         if consideration is not False:
             results = all_results.copy()
         if from_:
@@ -49,4 +48,4 @@ def test_Yielding(grepper, action, consideration, from_, in_expression):
             results &= results_in_comprehension
         elif in_expression is False:
             results -= results_in_comprehension
-        assert set(grepper.get_all_results()) == results
+        assert set(grepper.all_results()) == results

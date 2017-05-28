@@ -1,6 +1,6 @@
 from ..utils import action, results_formatter
 from functools import partial
-import higher_grep as hg
+import arep
 import pytest
 import os
 
@@ -17,7 +17,7 @@ all_results = results_formatter({
 
 @pytest.fixture
 def grepper():
-    engine = hg.Grepper(os.path.abspath('tests/data/Action/Assignment.py'))
+    engine = arep.Grepper(os.path.abspath('tests/data/Action/Assignment.py'))
     return engine
 
 
@@ -35,8 +35,8 @@ def test_Assignment(grepper, action, Assign, AugAssign):
             results &= aug_assign_results
         elif AugAssign is False:
             results -= aug_assign_results
-        grepper.add_constraint(action)
-        assert set(grepper.get_all_results()) == results
+        grepper.constraint_list.append(action)
+        assert set(grepper.all_results()) == results
 
 
 @pytest.mark.parametrize(('symbol', 'results'), [
@@ -46,5 +46,5 @@ def test_Assignment(grepper, action, Assign, AugAssign):
 def test_Assignment_augmented_symbol(grepper, action, symbol, results):
     action.reset()
     action.Assignment.Operational_Augmentation.operation_symbol = symbol
-    grepper.add_constraint(action)
-    assert set(grepper.get_all_results()) == results_formatter(results)
+    grepper.constraint_list.append(action)
+    assert set(grepper.all_results()) == results_formatter(results)

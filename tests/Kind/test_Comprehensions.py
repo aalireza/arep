@@ -1,6 +1,6 @@
 from ..utils import kind, results_formatter
 from functools import partial
-import higher_grep as hg
+import arep
 import pytest
 import os
 
@@ -27,8 +27,7 @@ all_results = (list_comp | dict_comp | set_comp | gen_expr)
 
 @pytest.fixture
 def grepper():
-    engine = hg.Grepper(
-        os.path.abspath('tests/data/Kind/Comprehensions.py'))
+    engine = arep.Grepper(os.path.abspath('tests/data/Kind/Comprehensions.py'))
     return engine
 
 
@@ -46,7 +45,7 @@ def test_Comprehensions(grepper, kind, consideration, of_gen, of_set, of_dict,
         kind.Comprehensions.of_set = of_set
         kind.Comprehensions.of_gen = of_gen
         kind.Comprehensions.consideration = consideration
-        grepper.add_constraint(kind)
+        grepper.constraint_list.append(kind)
         results = all_results.copy()
         if of_list:
             results &= list_comp
@@ -64,4 +63,4 @@ def test_Comprehensions(grepper, kind, consideration, of_gen, of_set, of_dict,
             results &= gen_expr
         elif of_gen is False:
             results -= gen_expr
-        assert set(grepper.get_all_results()) == results
+        assert set(grepper.all_results()) == results

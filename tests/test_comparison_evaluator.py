@@ -1,9 +1,9 @@
-import higher_grep as hg
+import arep
 import pytest
 import ast
 
 
-ops = hg.utils.ast_mapped_operators()
+ops = arep.utils.ast_mapped_operators()
 
 
 @pytest.mark.parametrize(('args', 'result'), [

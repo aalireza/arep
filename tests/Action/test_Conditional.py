@@ -1,6 +1,6 @@
 from ..utils import action, results_formatter
 from functools import partial
-import higher_grep as hg
+import arep
 import pytest
 import os
 
@@ -32,7 +32,7 @@ all_results = (misc_results | results_with_elif | results_with_else |
 
 @pytest.fixture
 def grepper():
-    engine = hg.Grepper(os.path.abspath('tests/data/Action/Conditional.py'))
+    engine = arep.Grepper(os.path.abspath('tests/data/Action/Conditional.py'))
     return engine
 
 
@@ -47,8 +47,8 @@ def test_Conditional(grepper, action, consideration, elif_, else_, ifexp):
         action.Conditional.else_ = else_
         action.Conditional.elif_ = elif_
         action.Conditional.ifexp = ifexp
-        grepper.add_constraint(action)
-        obtained_results = set(grepper.get_all_results())
+        grepper.constraint_list.append(action)
+        obtained_results = set(grepper.all_results())
         if ifexp is None:
             target_results = all_results.copy()
         elif ifexp is True:

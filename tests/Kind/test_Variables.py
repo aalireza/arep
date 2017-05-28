@@ -1,6 +1,6 @@
 from ..utils import kind, results_formatter
 from functools import partial
-import higher_grep as hg
+import arep
 import pytest
 import os
 
@@ -32,8 +32,7 @@ all_results = (results_regular | results_temp | results_args |
 
 @pytest.fixture
 def grepper():
-    engine = hg.Grepper(
-        os.path.abspath('tests/data/Kind/Variables.py'))
+    engine = arep.Grepper(os.path.abspath('tests/data/Kind/Variables.py'))
     return engine
 
 
@@ -46,7 +45,7 @@ def test_Variables(grepper, kind, consideration, is_attribute, is_argument):
         kind.Variables.is_attribute = is_attribute
         kind.Variables.is_argument = is_argument
         kind.Variables.consideration = consideration
-        grepper.add_constraint(kind)
+        grepper.constraint_list.append(kind)
         results = all_results.copy()
         if is_attribute:
             results &= results_attributes
@@ -56,7 +55,7 @@ def test_Variables(grepper, kind, consideration, is_attribute, is_argument):
             results &= results_args
         elif is_argument is False:
             results -= results_args
-        assert set(grepper.get_all_results()) == results
+        assert set(grepper.all_results()) == results
 
 
 @pytest.mark.parametrize(('name', 'result'), [
@@ -71,8 +70,8 @@ def test_Variables_name(grepper, kind, consideration, name, result):
     kind.reset()
     kind.Variables.name = name
     kind.Variables.consideration = consideration
-    grepper.add_constraint(kind)
-    assert set(grepper.get_all_results()) == results_formatter(result)
+    grepper.constraint_list.append(kind)
+    assert set(grepper.all_results()) == results_formatter(result)
 
 
 @pytest.mark.parametrize(('name', ('result')), [
@@ -82,5 +81,5 @@ def test_Variables_name_attr(grepper, kind, name, result):
     kind.reset()
     kind.Variables.is_attribute = True
     kind.Variables.name = name
-    grepper.add_constraint(kind)
-    assert set(grepper.get_all_results()) == results_formatter(result)
+    grepper.constraint_list.append(kind)
+    assert set(grepper.all_results()) == results_formatter(result)

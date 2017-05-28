@@ -1,6 +1,6 @@
 from ..utils import action, results_formatter
 from functools import partial
-import higher_grep as hg
+import arep
 import pytest
 import os
 
@@ -13,13 +13,12 @@ all_results = results_formatter({
 
 @pytest.fixture
 def grepper():
-    engine = hg.Grepper(
-        os.path.abspath('tests/data/Action/Continuing.py'))
+    engine = arep.Grepper(os.path.abspath('tests/data/Action/Continuing.py'))
     return engine
 
 
 def test_Continuing(grepper, action):
     action.reset()
     action.Continuing.consideration = True
-    grepper.add_constraint(action)
-    assert set(grepper.get_all_results()) == all_results
+    grepper.constraint_list.append(action)
+    assert set(grepper.all_results()) == all_results

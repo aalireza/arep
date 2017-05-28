@@ -1,5 +1,5 @@
-from higher_grep.utils import Result
-from higher_grep.constraints import Action, Kind, Properties
+from arep.utils import Result
+from arep.constraints import Action, Kind, Properties
 import ast
 import pytest
 

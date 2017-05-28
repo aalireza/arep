@@ -1,6 +1,6 @@
 from ..utils import action, results_formatter
 from functools import partial
-import higher_grep as hg
+import arep
 import pytest
 import os
 
@@ -13,16 +13,17 @@ all_results = results_formatter({
 
 @pytest.fixture
 def grepper():
-    engine = hg.Grepper(
-        os.path.abspath('tests/data/Action/Making_Nonlocal.py'))
+    engine = arep.Grepper(
+        os.path.abspath('tests/data/Action/Making_Nonlocal.py')
+    )
     return engine
 
 
 def test_Making_Nonlocal(grepper, action):
     action.reset()
     action.Making_Nonlocal.consideration = True
-    grepper.add_constraint(action)
-    assert set(grepper.get_all_results()) == all_results
+    grepper.constraint_list.append(action)
+    assert set(grepper.all_results()) == all_results
 
 
 @pytest.mark.parametrize(('name', 'result'), [
@@ -36,5 +37,5 @@ def test_Making_Nonlocal_name(grepper, action, consideration, name,
     action.reset()
     action.Making_Nonlocal.name = name
     action.Making_Nonlocal.consideration = consideration
-    grepper.add_constraint(action)
-    assert set(grepper.get_all_results()) == results_formatter(result)
+    grepper.constraint_list.append(action)
+    assert set(grepper.all_results()) == results_formatter(result)

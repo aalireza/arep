@@ -1,9 +1,9 @@
-import higher_grep as hg
+import arep
 import pytest
 
 
 def results_formatter(*results):
-    return [hg.utils.Result(n, x, y) for n, x, y in results][0]
+    return [arep.utils.Result(n, x, y) for n, x, y in results][0]
 
 
 @pytest.mark.parametrize(('left', 'right'), [

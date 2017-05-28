@@ -1,6 +1,6 @@
 from ..utils import kind, results_formatter
 from functools import partial
-import higher_grep as hg
+import arep
 import pytest
 import os
 
@@ -19,16 +19,15 @@ all_results = (definitions | calls)
 
 @pytest.fixture
 def grepper():
-    engine = hg.Grepper(
-        os.path.abspath('tests/data/Kind/Classes.py'))
+    engine = arep.Grepper(os.path.abspath('tests/data/Kind/Classes.py'))
     return engine
 
 
 def test_Classes(grepper, kind):
     kind.reset()
     kind.Classes.consideration = True
-    grepper.add_constraint(kind)
-    assert set(grepper.get_all_results()) == all_results
+    grepper.constraint_list.append(kind)
+    assert set(grepper.all_results()) == all_results
 
 
 @pytest.mark.parametrize(('name', 'result'), [
@@ -40,5 +39,5 @@ def test_Classes(grepper, kind):
 def test_Classes_name(grepper, kind, name, result):
     kind.reset()
     kind.Classes.name = name
-    grepper.add_constraint(kind)
-    assert set(grepper.get_all_results()) == results_formatter(result)
+    grepper.constraint_list.append(kind)
+    assert set(grepper.all_results()) == results_formatter(result)
