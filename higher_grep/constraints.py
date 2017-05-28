@@ -280,16 +280,6 @@ class Properties(object):
                 'maximum': None,
             },
         },
-        'Nestedness': {
-            'Inward': {
-                'minimum': None,
-                'maximum': None,
-            },
-            'Outward': {
-                'minimum': None,
-                'maximum': None,
-            }
-        }
     }
 
     def __new__(self):

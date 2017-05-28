@@ -41,31 +41,3 @@ class Positional(object):
 
         def __new__(self, **kwargs):
             return ValidatorForm(self, **kwargs)
-
-
-class Nestedness(object):
-    class Inward(object):
-        def basic(node, consideration):
-            raise NotImplementedError
-
-        def minimum(minimum, node):
-            raise NotImplementedError
-
-        def maximum(maximum, node):
-            raise NotImplementedError
-
-        def __new__(self, **kwargs):
-            return ValidatorForm(self, **kwargs)
-
-    class Outward(object):
-        def basic(node, consideration):
-            raise NotImplementedError
-
-        def minimum(minimum, node):
-            raise NotImplementedError
-
-        def maximum(maximum, node):
-            raise NotImplementedError
-
-        def __new__(self, **kwargs):
-            return ValidatorForm(self, **kwargs)
