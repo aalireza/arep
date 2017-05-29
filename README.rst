@@ -1,3 +1,3 @@
-Higher-grepy
-============
+arep
+====
 A higher grep: semantic/syntactic source code searching for Python
