@@ -1,4 +1,6 @@
 __author__ = "Alireza Rafiei"
 __email__ = "mail@rafiei.net"
 __copyright__ = "License :: OSI Approved :: BSD License (3-Clause)"
-__status__ = 'Development Status :: 3 - Alpha'
+__status__ = "Development Status :: 3 - Alpha"
+__version__ = "0.1.0"
+__repo__ = "https://github.com/aalireza/arep"
