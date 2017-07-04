@@ -171,19 +171,14 @@ class ConstraintForm(type):
 
         specs['__name__'] = name
         constraint_type = name
-        with_consideration = specs['considerable']
-        del specs['considerable']
+        # Currently, all constraint types would have the consideration toggle.
+        with_consideration = True
 
         return wrapped(name, specs, with_consideration, constraint_type)
 
 
-class Action(object):
-    """
-    Uses the ConstraintForm to create a series of nested classes representing
-    all of the constraints in `Action` category.
-    """
-    __Template_Form = {
-        'considerable': True,
+def _Action_Template():
+    return {
         'Import': {
             'name': None,
             'From': {
@@ -251,17 +246,18 @@ class Action(object):
         }
     }
 
-    def __new__(self):
-        return ConstraintForm("Action", (object,), self.__Template_Form.copy())
 
-
-class Kind(object):
+class Action(object):
     """
     Uses the ConstraintForm to create a series of nested classes representing
-    all of the constraints in `Kind` category.
+    all of the constraints in `Action` category.
     """
-    __Template_Form = {
-        'considerable': True,
+    def __new__(self):
+        return ConstraintForm("Action", (object,), _Action_Template())
+
+
+def _Kind_Template():
+    return {
         'Variables': {
             spec: None
             for spec in {
@@ -308,17 +304,18 @@ class Kind(object):
         }
     }
 
-    def __new__(self):
-        return ConstraintForm("Kind", (object,), self.__Template_Form.copy())
 
-
-class Properties(object):
+class Kind(object):
     """
     Uses the ConstraintForm to create a series of nested classes representing
     all of the constraints in `Kind` category.
     """
-    __Template_Form = {
-        'considerable': True,
+    def __new__(self):
+        return ConstraintForm("Kind", (object,), _Kind_Template())
+
+
+def _Properties_Template():
+    return {
         'Positional': {
             'Line_Numbers': {
                 'minimum': None,
@@ -331,6 +328,12 @@ class Properties(object):
         },
     }
 
+
+
+class Properties(object):
+    """
+    Uses the ConstraintForm to create a series of nested classes representing
+    all of the constraints in `Kind` category.
+    """
     def __new__(self):
-        return ConstraintForm("Properties", (object,),
-                              self.__Template_Form.copy())
+        return ConstraintForm("Properties", (object,), _Properties_Template())
