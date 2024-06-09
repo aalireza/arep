@@ -1,18 +1,20 @@
 arep
 ====
 
+Warnings
+-------
+1. This code was written 7 years ago when the author knew next to nothing about
+programming language theory, compilers, etc. The author still knows next to
+nothing about those things but he does recommend using SemGrep and maybe ChatGPT.
 
-- `Description <#description>`__
-- `Documentation <#documentation>`__
-- `Installation <#installation>`__
-- `Authors <#authors>`__
-- `License <#license>`__
+2. The project is unmaintained. Python's AST has probably changed a bit since 7
+years ago.
 
 
 Description
 -----------
 `arep` is searching tool that enables one to scan a Python program and find
-syntactical and/or semantical patterns within it. 
+syntactical and/or semantical patterns within it.
 
 Instead of a string-based method querying, a user declaratively describes the
 search parameter in one or more constraint objects, then the search engine would
@@ -30,26 +32,6 @@ if changes its value to `True`/`False` then the search engine would seek/avoid
 all of the results that match the constraint. This method enables one build up
 on the predefined constraints and search of arbitrary complex patterns within
 the code.
-
-
-Documentation
--------------
-To read the documentation, visit `here <http://arep.readthedocs.io/>`_.
-
-
-Installation
-------------
-Open up a terminal and enter:
-
-::
-
-  pip install arep
-
-
-Authors
--------
-
-+ **Alireza Rafiei** - `aalireza <https://github.com/aalireza>`_
 
 
 License
